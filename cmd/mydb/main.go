@@ -12,7 +12,12 @@ import (
 func main() {
 
 
-	db := storage.NewDatabase()
+	db, err := storage.NewDatabase()
+
+	if err != nil {
+		fmt.Println("Error:", err)
+		os.Exit(1)
+	}
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
@@ -33,38 +38,44 @@ func main() {
 
 		switch strings.ToUpper(args[0]) {
 
-		case "SET":
+		case storage.OpSet:
 			if len(args) != 3 {
 				fmt.Println("Usage: SET <key> <value>")
 				continue
 			}
 
-			db.SET(args[1], args[2])
+			db.Set(args[1], args[2])
 			fmt.Println("OK")
 
-		case "GET":
+		case storage.OpGet:
 			if len(args) != 2 {
 				fmt.Println("Usage: GET <key>")
 				continue
 			}
 
-			value, ok := db.GET(args[1])
+			value, ok := db.Get(args[1])
 			if !ok {
 				fmt.Println("(nil)")
 			} else {
 				fmt.Println(value)
 			}
 
-		case "DELETE":
+		case storage.OpDelete:
 			if len(args) != 2 {
 				fmt.Println("Usage: DELETE <key>")
 				continue
 			}
 
-			db.DELETE(args[1])
-			fmt.Println("Deleted")
+			ok := db.Delete(args[1])
+
+			if ok {
+				fmt.Println("Deleted")
+			} else {
+				fmt.Println("No key " + args[1] + " exists do delete")
+			}
 
 		case "EXIT":
+			db.Close()
 			fmt.Println("Goodbye!")
 			return
 
