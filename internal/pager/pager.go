@@ -45,25 +45,29 @@ func (p *Pager) ReadPage(id uint32) (*Page, error){
 
 	info, err := p.file.Stat()
 
-	if uint32(info.Size()) > id * uint32(p.pageSize) {
+	if err != nil {
+		return nil, err
+	}
+
+	if (info.Size()) < int64((id+1) * uint32((p.pageSize))) {
 		return nil, errors.New("error: no page exists for that id, largest page id is " + strconv.Itoa(len(p.pages)))
 	}
 
+	// now seek and read bytes
+	_, err = p.file.Seek(int64(p.pageSize) * int64(id), io.SeekStart)
+
 	if err != nil {
 		return nil, err
 	}
-
-	// now seek and read bytes
-	p.file.Seek(0, p.pageSize * int(id))
 	data := make([]byte, p.pageSize)
 	bytesRead, err := p.file.Read(data)
 
-	if bytesRead != int(p.pageSize) {
-		return nil, errors.New("error: wasn't able to read all data to the page")
-	}
-
 	if err != nil {
 		return nil, err
+	}
+
+	if bytesRead != int(p.pageSize) {
+		return nil, errors.New("error: wasn't able to read all data to the page")
 	}
 
 	page := &Page{
@@ -72,6 +76,7 @@ func (p *Pager) ReadPage(id uint32) (*Page, error){
 		dirty: false,
 	}
 	
+	p.pages[id] = page
 	return page, nil
 
 }
@@ -92,36 +97,82 @@ func (p *Pager) WritePage(id uint32, newData []byte) (*Page, error){
 	}
 
 	page.data = newData
-	page.dirty = true // we can flush rn tbh
-	
-	p.pages[id] = page
-
-	return page, nil
-}
-
-func (p *Pager) AllocatePage(id uint32) (*Page, error) {
-	pageId := len(p.pages)
-
-	// get page ID
-	// go to end of file and allocate pageSize number of bytes
-
-	data := make([]byte, p.pageSize)
-	p.file.Seek(0, io.SeekEnd)
-	bytesWritten, err := p.file.Write(data)
-
-	if bytesWritten != int(p.pageSize) {
-		return nil, errors.New("error: wasn't able to allocate enough data to a page")
-	}
+	page.dirty = true 
+	err = p.flush(page)
 
 	if err != nil {
 		return nil, err
 	}
 
+	p.pages[id] = page
+	page.dirty = false
+
+	return page, nil
+}
+
+func (p *Pager) AllocatePage() (*Page, error) {
+	
+	info, err := p.file.Stat()
+
+	if err != nil {
+		return nil, err
+	}
+
+	prevFileSize := info.Size()
+
+	// get page id
+	id := uint32(info.Size()) / uint32(p.pageSize)
+
+	// go to end of file and allocate pageSize number of bytes
+	data := make([]byte, p.pageSize)
+	if _, err = p.file.Seek(0, io.SeekEnd); err != nil {
+		return nil, err
+	}
+ 
+	bytesWritten, err := p.file.Write(data)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if bytesWritten != int(p.pageSize) {
+		return nil, errors.New("error: wasn't able to allocate enough data to a page")
+	}
+
+	info, err = p.file.Stat() 
+	
+	if err != nil {
+		return nil, err
+	}
+
+	if info.Size() != prevFileSize + int64(p.pageSize) {
+		return nil, errors.New("error: wasn't able to allocate enough data to a page")
+	}
+	
 	page := &Page{
-		id: uint32(pageId),
+		id: uint32(id),
 		data: make([]byte, p.pageSize),
 		dirty: false,
 	} 
-
+	
+	p.pages[id] = page
 	return page, nil
+}
+
+func (p *Pager) flush(page *Page) error {
+	
+	if _, err := p.file.Seek(int64(page.id)*int64(p.pageSize), io.SeekStart); err != nil {
+		return err
+	}
+
+	bytesWritten, err := p.file.Write(page.data)
+
+	if bytesWritten != p.pageSize {
+		// todo: roll back if this happens
+		return errors.New("error: not all bytes were written, partial write may have occurred")
+	} else if err != nil {
+		return err
+	}
+
+	return nil 
 }

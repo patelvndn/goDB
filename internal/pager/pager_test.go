@@ -73,7 +73,7 @@ func TestAllocatePage_GrowsFileBySinglePageSize(t *testing.T) {
 		t.Fatalf("stat failed: %v", err)
 	}
 
-	if _, err := p.AllocatePage(0); err != nil {
+	if _, err := p.AllocatePage(); err != nil {
 		t.Fatalf("AllocatePage() returned error: %v", err)
 	}
 
@@ -92,7 +92,7 @@ func TestAllocatePage_ReturnsDistinctIDsAcrossCalls(t *testing.T) {
 
 	seen := make(map[uint32]bool)
 	for i := 0; i < 5; i++ {
-		page, err := p.AllocatePage(0)
+		page, err := p.AllocatePage()
 		if err != nil {
 			t.Fatalf("AllocatePage() call %d returned error: %v", i, err)
 		}
@@ -112,7 +112,7 @@ func TestAllocatePage_ReturnsDistinctIDsAcrossCalls(t *testing.T) {
 func TestReadPage_ReturnsDataForJustAllocatedPage(t *testing.T) {
 	p, _ := newTestPager(t)
 
-	allocated, err := p.AllocatePage(0)
+	allocated, err := p.AllocatePage()
 	if err != nil {
 		t.Fatalf("AllocatePage() returned error: %v", err)
 	}
@@ -141,7 +141,7 @@ func TestReadPage_UnallocatedIDOnEmptyFileReturnsError(t *testing.T) {
 func TestReadPage_IDBeyondEndOfFileReturnsError(t *testing.T) {
 	p, _ := newTestPager(t)
 
-	if _, err := p.AllocatePage(0); err != nil {
+	if _, err := p.AllocatePage(); err != nil {
 		t.Fatalf("AllocatePage() failed: %v", err)
 	}
 
@@ -154,11 +154,11 @@ func TestReadPage_IDBeyondEndOfFileReturnsError(t *testing.T) {
 func TestReadPage_DistinctPagesReturnDistinctData(t *testing.T) {
 	p, _ := newTestPager(t)
 
-	firstAlloc, err := p.AllocatePage(0)
+	firstAlloc, err := p.AllocatePage()
 	if err != nil {
 		t.Fatalf("AllocatePage() failed: %v", err)
 	}
-	secondAlloc, err := p.AllocatePage(0)
+	secondAlloc, err := p.AllocatePage()
 	if err != nil {
 		t.Fatalf("AllocatePage() failed: %v", err)
 	}
@@ -196,7 +196,7 @@ func TestReadPage_DistinctPagesReturnDistinctData(t *testing.T) {
 func TestReadPage_RepeatedCallsReturnSameCachedPointer(t *testing.T) {
 	p, _ := newTestPager(t)
 
-	allocated, err := p.AllocatePage(0)
+	allocated, err := p.AllocatePage()
 	if err != nil {
 		t.Fatalf("AllocatePage() failed: %v", err)
 	}
@@ -224,7 +224,7 @@ func TestReadPage_RepeatedCallsReturnSameCachedPointer(t *testing.T) {
 func TestWritePage_ThenReadPageRoundTrips(t *testing.T) {
 	p, _ := newTestPager(t)
 
-	allocated, err := p.AllocatePage(0)
+	allocated, err := p.AllocatePage()
 	if err != nil {
 		t.Fatalf("AllocatePage() failed: %v", err)
 	}
@@ -250,7 +250,7 @@ func TestWritePage_ThenReadPageRoundTrips(t *testing.T) {
 func TestWritePage_PersistsToDiskAcrossPagerInstances(t *testing.T) {
 	p, path := newTestPager(t)
 
-	allocated, err := p.AllocatePage(0)
+	allocated, err := p.AllocatePage()
 	if err != nil {
 		t.Fatalf("AllocatePage() failed: %v", err)
 	}
@@ -279,7 +279,7 @@ func TestWritePage_PersistsToDiskAcrossPagerInstances(t *testing.T) {
 func TestWritePage_PadsShortDataToPageSize(t *testing.T) {
 	p, _ := newTestPager(t)
 
-	allocated, err := p.AllocatePage(0)
+	allocated, err := p.AllocatePage()
 	if err != nil {
 		t.Fatalf("AllocatePage() failed: %v", err)
 	}
@@ -306,7 +306,7 @@ func TestWritePage_PadsShortDataToPageSize(t *testing.T) {
 func TestWritePage_RejectsDataLargerThanPageSize(t *testing.T) {
 	p, _ := newTestPager(t)
 
-	allocated, err := p.AllocatePage(0)
+	allocated, err := p.AllocatePage()
 	if err != nil {
 		t.Fatalf("AllocatePage() failed: %v", err)
 	}

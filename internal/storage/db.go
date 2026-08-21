@@ -17,7 +17,7 @@ type DB struct {
 	fileName string
 	separatingOperator string
 	db map[string]string
-	file *os.File
+	file *os.File 
 
 }
 
@@ -25,7 +25,7 @@ func NewDatabase() (*DB, error) {
 
 	database := &DB{
 		db: make(map[string]string),
-		fileName: "database.db",
+		fileName: "/Users/vandanpatel/goDB/internal/storage/database.db",
 		separatingOperator: ":",
 	}
 
