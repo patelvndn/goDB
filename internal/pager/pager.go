@@ -21,6 +21,10 @@ type Pager struct {
 	pages map[uint32]*Page // cache
 }
 
+const (
+	BASE_10 = 10
+)
+
 func New(fileName string, pageSize int) (*Pager, error) {
 
 	// will create a page if it doesn't exists
@@ -31,6 +35,7 @@ func New(fileName string, pageSize int) (*Pager, error) {
 	}
 
 	p := &Pager{file: file, pageSize: pageSize, pages: make(map[uint32]*Page)}
+	
 	return p, nil 
 } 
 
@@ -49,8 +54,8 @@ func (p *Pager) ReadPage(id uint32) (*Page, error){
 		return nil, err
 	}
 
-	if (info.Size()) < int64((id+1) * uint32((p.pageSize))) {
-		return nil, errors.New("error: no page exists for that id, largest page id is " + strconv.Itoa(len(p.pages)))
+	if (info.Size()) < (int64(id+1) * int64((p.pageSize))) {
+		return nil, errors.New("error: no page exists for that id, largest page id is " + strconv.FormatInt((info.Size() / int64(p.pageSize)-1), BASE_10))
 	}
 
 	// now seek and read bytes
@@ -82,7 +87,7 @@ func (p *Pager) ReadPage(id uint32) (*Page, error){
 }
 
 func (p *Pager) WritePage(id uint32, newData []byte) (*Page, error){
-	page, err := p.ReadPage(id)
+	_, err := p.ReadPage(id)
 
 	if err != nil {
 		return nil, err
@@ -96,18 +101,18 @@ func (p *Pager) WritePage(id uint32, newData []byte) (*Page, error){
 		newData = append(newData, make([]byte, p.pageSize - len(newData))...)
 	}
 
-	page.data = newData
-	page.dirty = true 
-	err = p.flush(page)
+	// create a copy in case flush fails
+	candidate := &Page{id: id, data: newData, dirty: true}
+	err = p.flush(candidate)
 
 	if err != nil {
 		return nil, err
 	}
 
-	p.pages[id] = page
-	page.dirty = false
+	candidate.dirty = false
+	p.pages[id] = candidate
 
-	return page, nil
+	return candidate, nil
 }
 
 func (p *Pager) AllocatePage() (*Page, error) {
@@ -124,29 +129,9 @@ func (p *Pager) AllocatePage() (*Page, error) {
 	id := uint32(info.Size()) / uint32(p.pageSize)
 
 	// go to end of file and allocate pageSize number of bytes
-	data := make([]byte, p.pageSize)
-	if _, err = p.file.Seek(0, io.SeekEnd); err != nil {
+	err = allocateBytes(p, prevFileSize)
+	if err != nil{
 		return nil, err
-	}
- 
-	bytesWritten, err := p.file.Write(data)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if bytesWritten != int(p.pageSize) {
-		return nil, errors.New("error: wasn't able to allocate enough data to a page")
-	}
-
-	info, err = p.file.Stat() 
-	
-	if err != nil {
-		return nil, err
-	}
-
-	if info.Size() != prevFileSize + int64(p.pageSize) {
-		return nil, errors.New("error: wasn't able to allocate enough data to a page")
 	}
 	
 	page := &Page{
@@ -157,6 +142,65 @@ func (p *Pager) AllocatePage() (*Page, error) {
 	
 	p.pages[id] = page
 	return page, nil
+}
+
+// persist file in physical storage
+func (p *Pager) Sync() error {
+	return p.file.Sync()
+}
+
+// close the file
+func (p *Pager) Close() error {
+	
+	var err error
+
+	for _, page := range(p.pages){
+	
+		if page.dirty {
+			err = p.flush(page)
+		}
+
+		if err != nil {
+			return err
+		}
+	}
+
+	err = p.Sync()
+
+	if err != nil {
+		return err
+	}
+
+	return p.file.Close()
+}
+
+func allocateBytes(p *Pager, prevFileSize int64) error {
+	data := make([]byte, p.pageSize)
+
+	if _, err := p.file.Seek(0, io.SeekEnd); err != nil {
+		return err
+	}
+
+	bytesWritten, err := p.file.Write(data)
+	if err != nil {
+		return err
+	}
+
+	if bytesWritten != int(p.pageSize) {
+		return errors.New("error: wasn't able to allocate enough data to a page")
+	}
+
+	info, err := p.file.Stat()
+
+	if err != nil {
+		return err
+	}
+
+	if info.Size() != prevFileSize+int64(p.pageSize) {
+		return errors.New("error: wasn't able to allocate enough data to a page")
+	}
+
+	return nil
 }
 
 func (p *Pager) flush(page *Page) error {
