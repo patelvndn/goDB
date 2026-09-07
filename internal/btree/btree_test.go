@@ -99,7 +99,7 @@ func TestInsertDuplicateKeyIsRejected(t *testing.T) {
 	bt := New(2)
 	bt.InsertNode(10)
 
-	_, ok := bt.InsertNode(10)
+	_, _, ok := bt.InsertNode(10)
 	if ok {
 		t.Error("inserting a key that already exists should report ok=false")
 	}
