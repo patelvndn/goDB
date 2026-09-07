@@ -60,10 +60,14 @@ func (n *Node)split(t int) (int, *Node, bool)  {
 	// when we split a node each side should have t
 	// splitting a node means half the keys get shifted to a new node (right node)
 	// and the middle node gets promoted up
-
 	promoted := n.keys[t]
-	lk := n.keys[0:t]
-	rk := n.keys[t+1:]
+
+	lk := make([]int, t)
+	copy(n.keys[:t], lk)
+
+	rk := make([]int, len(n.keys)-(t+1))
+	copy(n.keys[t+1:], lk)
+
 	n.keys = lk
 	var right *Node
 
@@ -71,11 +75,18 @@ func (n *Node)split(t int) (int, *Node, bool)  {
 	// node could be a leaf still aka it won't have any childrn
 	right = &Node{
 			keys: rk,
+			isLeaf: true,
 	}
 
 	if !n.isLeaf {
-		rightChildren := n.children[t+1:]
-		right.children = rightChildren
+		rc := make([]*Node, len(n.children)-(t+1))
+		copy(n.children[t+1:], rc)
+		right.children = rc
+
+		lc := make([]*Node, t)
+		copy(n.children[:t],lc)
+		n.children = lc
+
 		right.isLeaf = false
 	}
 
