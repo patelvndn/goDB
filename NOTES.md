@@ -12,4 +12,4 @@ Also my experience in go as I try to get a lot better at it.
 
 3. I deliberately held off on implementing concurrency into the Pager, I want to build the B-tree module first before I try adding more complexity. Concurrency will be a later issue to worry about
 
-4.
+4. Found a bug with how I was splitting nodes in a B-tree. I was aliasing the nodes slices of children and keys. Slice aliasing views back into the same slice. It doesn't create a copy if for whatever we write to the rightmost index of the left array it could overwrite or corrupt the right arrays keys and index
