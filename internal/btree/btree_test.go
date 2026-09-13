@@ -1,6 +1,8 @@
 package btree
 
-import "testing"
+import (
+	"testing"
+)
 
 // --- findIndex: pure function, easiest to pin down first ---
 
@@ -70,7 +72,7 @@ func TestInsertThenSearchSingleKey(t *testing.T) {
 
 func TestInsertMultipleThenSearchEach(t *testing.T) {
 	bt := New(2)
-	keys := []int{10, 20, 5, 15, 25, 1, 30}
+	keys := []int{10, 20, 5, 15, 25, 1, 30, 3, 2, 4, 44, 67, 87, 546, 12}
 	for _, k := range keys {
 		bt.InsertNode(k)
 	}
@@ -99,8 +101,8 @@ func TestInsertDuplicateKeyIsRejected(t *testing.T) {
 	bt := New(2)
 	bt.InsertNode(10)
 
-	_, _, ok := bt.InsertNode(10)
-	if ok {
+	err := bt.InsertNode(10)
+	if err == nil {
 		t.Error("inserting a key that already exists should report ok=false")
 	}
 }

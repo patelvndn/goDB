@@ -1,6 +1,9 @@
 package btree
 
-import "slices"
+import (
+	"errors"
+	"slices"
+)
 
 /*
 	An abstraction...
@@ -21,54 +24,89 @@ type Btree struct {
 
 func New(t int) *Btree {
 	return &Btree{
-		root:&Node{isLeaf: true,},
+		root:&Node{
+				isLeaf: true,
+				keys: make([]int, 0),
+				children: make([]*Node, 0)},
 		t: t,
 	}
 }
 
 
-func (bt *Btree) InsertNode(key int) (int, *Node, bool) {
+func (bt *Btree) InsertNode(key int) (error){
 	// inserting a node into the key... we can assume that the node doesn't exist...
-	// will use a similar method of search
-	return bt.root.insert(key, bt.t)
+	// will use a similar method of search	
+	// if the root splits we create a new root
+	
+	promoted, right, split, err := bt.root.insert(key, bt.t);
+	if err != nil {
+		return err
+	}
+
+	var newRoot *Node
+	var left *Node
+
+	if split {
+		left = bt.root
+
+		newRoot = &Node{
+			keys: []int{promoted},
+			children: []*Node{left,right},
+		}
+		bt.root = newRoot
+	}
+	return nil 
 }
 
-func (n *Node) insert(key int, t int) (int, *Node, bool) {
+func (n *Node) insert(key int, t int) (int, *Node, bool, error) {
 	i := findIndex(n.keys, key) 
+	
+
+	// this is the node with the key
+	if 0 <= i && i < len(n.keys) && n.keys[i] == key {
+		return -1, nil, false, errors.New("Key already exists in node")
+	}
+
 	if n.isLeaf {
 		n.keys = slices.Insert(n.keys, i, key)
 		// insert key into index i 
 	} else {
-		// propogate the split back up 
-		promoted, right, split := n.children[i].insert(key,t);
+		// propogate the split back up, if it happened
+		promoted, right, split, err := n.children[i].insert(key,t);
+		if err != nil {
+			return -1, nil, false, err
+		}
+
 		if split {
 			n.keys = slices.Insert(n.keys, i, promoted)
 			n.children = slices.Insert(n.children, i+1, right)
 		}
+
 	}
 
 	// split
 	if len(n.keys) > 2*t-1 {
         return n.split(t)
     } 
-
-	return 0, nil, false
+	return 0, nil, false, nil
 }
 
 
-func (n *Node)split(t int) (int, *Node, bool)  {
+func (n *Node)split(t int) (int, *Node, bool, error)  {
 	// when we split a node each side should have t
 	// splitting a node means half the keys get shifted to a new node (right node)
 	// and the middle node gets promoted up
+	// n turns into left
 	promoted := n.keys[t]
 
 	lk := make([]int, t)
-	copy(n.keys[:t], lk)
+	copy(lk, n.keys[:t])
 
 	rk := make([]int, len(n.keys)-(t+1))
-	copy(n.keys[t+1:], lk)
+	copy(rk, n.keys[t+1:])
 
 	n.keys = lk
+	
 	var right *Node
 
 	// need to split children too, but how?
@@ -80,25 +118,25 @@ func (n *Node)split(t int) (int, *Node, bool)  {
 
 	if !n.isLeaf {
 		rc := make([]*Node, len(n.children)-(t+1))
-		copy(n.children[t+1:], rc)
+		copy(rc, n.children[t+1:],)
 		right.children = rc
 
-		lc := make([]*Node, t)
-		copy(n.children[:t],lc)
+		lc := make([]*Node, t+1)
+		copy(lc, n.children[:t+1])
 		n.children = lc
 
 		right.isLeaf = false
 	}
 
-	return promoted, right, true
+	return promoted, right, true, nil
 }
 
 func (bt *Btree) SearchNode(key int) (*Node, int, bool) {
 	return bt.root.search(key)
 }
 
-func (bt *Btree) RemoveNode() {
-	
+func (bt *Btree) RemoveNode(key int) (int, error) {
+	return 0, nil
 }
 
 
@@ -114,7 +152,6 @@ func findIndex (keys []int, key int) int {
 // search within the node itself to find out where the key exists
 func (n *Node) search(key int) (*Node, int, bool) {
 	i := findIndex(n.keys, key)		
-
 	// this is the node with the key
 	if i < len(n.keys) && n.keys[i] == key {
 		return n, i, true
