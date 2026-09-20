@@ -140,29 +140,50 @@ func (bt *Btree) SearchNode(key int) (*Node, int, bool) {
 // btreeNode module
 // data encoding module 
 func (bt *Btree) RemoveNode(key int) error {
-	return bt.root.remove(key)
+	return bt.root.remove(key, bt.t)
 }
 
-func (n *Node) remove(key int) error {
+func (n *Node) remove(key int, t int) error {
+
 	i := findIndex(n.keys, key)
 	found := false
 	if i < len(n.keys) && n.keys[i] == key {
 		found = true
 	}
 
-	if found {
-		// delete logic since we found it
-		if n.isLeaf{
-			n.keys = slices.Delete(n.keys, i,i+1)
+	if n.isLeaf {
+		// key is not in internal node
+		if found {
+			n.keys = slices.Delete(n.keys,i,i+1)
 			return nil
+		} 
+		return errors.New("Key not found error")
+	}
+
+	if found {
+		// key is in this internal node
+		left := n.children[i]
+		right := n.children[i+1]
+
+		// removing a node from nodee with size t => 
+		if len(left.keys) >= t {
+			pred := slices.Max(left.keys)
+			n.keys[i] = pred
+			left.remove(pred, t)
+		} else if len(right.keys) >= t {
+			succ := slices.Min(right.keys)
+			n.keys[i] = succ
+			right.remove(succ, t)
+		} else {
+			Merge(n,i)
+			left.remove(key, t)
 		}
 
-		// now it gets a bit harder with merges and such, there were three cases overall
-
-
+		// 
 	} else {
-		// havent found it
-		return n.children[i].remove(key)
+		child := n.children[i]
+		// fix merge
+		child.remove(i)
 	}
 
 	return nil 
