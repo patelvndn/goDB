@@ -135,9 +135,39 @@ func (bt *Btree) SearchNode(key int) (*Node, int, bool) {
 	return bt.root.search(key)
 }
 
-func (bt *Btree) RemoveNode(key int) (int, error) {
-	return 0, nil
+// eventually abstract away all the node methods
+// btree module
+// btreeNode module
+// data encoding module 
+func (bt *Btree) RemoveNode(key int) error {
+	return bt.root.remove(key)
 }
+
+func (n *Node) remove(key int) error {
+	i := findIndex(n.keys, key)
+	found := false
+	if i < len(n.keys) && n.keys[i] == key {
+		found = true
+	}
+
+	if found {
+		// delete logic since we found it
+		if n.isLeaf{
+			n.keys = slices.Delete(n.keys, i,i+1)
+			return nil
+		}
+
+		// now it gets a bit harder with merges and such, there were three cases overall
+
+
+	} else {
+		// havent found it
+		return n.children[i].remove(key)
+	}
+
+	return nil 
+}
+
 
 
 func findIndex (keys []int, key int) int {
