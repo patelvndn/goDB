@@ -18,4 +18,4 @@ Also my experience in go as I try to get a lot better at it.
 
 2. Found a bug where if we needed to add to the rightmost child on a non leaf node, it would error out since index would be > len(children). The issue was that I wasn't creating the left child nodes correctly which led to off by one error.
 
-3. Nice resource to visualize how btrees and b+trees work: Check out the [btree](https://www.btree.app) and [b+tree](https://bplustree.app)
+3. Nice resource to visualize how btrees and b+trees work: Check out the [btree](https://www.btree.app) and [b+tree](https://bplustree.app). Made by [Ben Dicken](https://www.youtube.com/@benjdicken)! A database expert! In this project we are using a btree (mainly because it's simpler) but databases like Postgres and MySQL use b+tree's
