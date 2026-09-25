@@ -3,7 +3,11 @@ package btree
 import (
 	"math/rand"
 	"testing"
+
+	"github.com/patelvndn/goDB/internal/btree/btreeNode"
 )
+
+type Node = btreeNode.Node
 
 // ---- invariant checker ----
 // Walks the tree after every operation and fails loudly at the first
@@ -20,53 +24,64 @@ func validateTree(t *testing.T, bt *Btree) {
 }
 
 func leafDepth(n *Node, d int) int {
-	if n.isLeaf {
+	if n.IsLeaf {
 		return d
 	}
-	return leafDepth(n.children[0], d+1)
+	return leafDepth(n.Children[0], d+1)
 }
+
+
+func findIndex (keys []int, key int) int {
+	for i, k := range keys {
+		if key <= k {
+			return i
+		}
+	}
+	return len(keys)
+}
+
 
 func validateNode(t *testing.T, n *Node, order int, isRoot bool, wantLeafDepth, depth int) {
 	t.Helper()
 
 	max := 2*order - 1
-	if len(n.keys) > max {
-		t.Fatalf("node has %d keys, exceeds max %d: %v", len(n.keys), max, n.keys)
+	if len(n.Keys) > max {
+		t.Fatalf("node has %d keys, exceeds max %d: %v", len(n.Keys), max, n.Keys)
 	}
-	if !isRoot && len(n.keys) < order-1 {
-		t.Fatalf("non-root node underflowed: %d keys, min %d: %v", len(n.keys), order-1, n.keys)
+	if !isRoot && len(n.Keys) < order-1 {
+		t.Fatalf("non-root node underflowed: %d keys, min %d: %v", len(n.Keys), order-1, n.Keys)
 	}
 
-	for i := 1; i < len(n.keys); i++ {
-		if n.keys[i-1] >= n.keys[i] {
-			t.Fatalf("keys not strictly sorted: %v", n.keys)
+	for i := 1; i < len(n.Keys); i++ {
+		if n.Keys[i-1] >= n.Keys[i] {
+			t.Fatalf("keys not strictly sorted: %v", n.Keys)
 		}
 	}
 
-	if n.isLeaf {
+	if n.IsLeaf {
 		if depth != wantLeafDepth {
 			t.Fatalf("leaf at depth %d, expected %d (tree unbalanced)", depth, wantLeafDepth)
 		}
-		if len(n.children) != 0 {
-			t.Fatalf("leaf has %d children, expected 0", len(n.children))
+		if len(n.Children) != 0 {
+			t.Fatalf("leaf has %d children, expected 0", len(n.Children))
 		}
 		return
 	}
 
-	if len(n.children) != len(n.keys)+1 {
+	if len(n.Children) != len(n.Keys)+1 {
 		t.Fatalf("node has %d keys but %d children (want %d): keys=%v",
-			len(n.keys), len(n.children), len(n.keys)+1, n.keys)
+			len(n.Keys), len(n.Children), len(n.Keys)+1, n.Keys)
 	}
 
-	for i, child := range n.children {
-		if len(child.keys) == 0 {
+	for i, child := range n.Children {
+		if len(child.Keys) == 0 {
 			t.Fatalf("child %d has zero keys", i)
 		}
-		if i > 0 && child.keys[0] <= n.keys[i-1] {
-			t.Fatalf("child %d first key %d not > separator %d", i, child.keys[0], n.keys[i-1])
+		if i > 0 && child.Keys[0] <= n.Keys[i-1] {
+			t.Fatalf("child %d first key %d not > separator %d", i, child.Keys[0], n.Keys[i-1])
 		}
-		if i < len(n.keys) && child.keys[len(child.keys)-1] >= n.keys[i] {
-			t.Fatalf("child %d last key %d not < separator %d", i, child.keys[len(child.keys)-1], n.keys[i])
+		if i < len(n.Keys) && child.Keys[len(child.Keys)-1] >= n.Keys[i] {
+			t.Fatalf("child %d last key %d not < separator %d", i, child.Keys[len(child.Keys)-1], n.Keys[i])
 		}
 		validateNode(t, child, order, false, wantLeafDepth, depth+1)
 	}
@@ -109,11 +124,11 @@ func TestNew(t *testing.T) {
 	if bt.root == nil {
 		t.Fatal("root is nil")
 	}
-	if !bt.root.isLeaf {
+	if !bt.root.IsLeaf {
 		t.Error("a brand new tree's root should be a leaf")
 	}
-	if len(bt.root.keys) != 0 {
-		t.Errorf("a brand new tree's root should have no keys, got %v", bt.root.keys)
+	if len(bt.root.Keys) != 0 {
+		t.Errorf("a brand new tree's root should have no keys, got %v", bt.root.Keys)
 	}
 }
 
@@ -183,11 +198,11 @@ func TestInsertPopulatesLeafKeys(t *testing.T) {
 	bt := New(2)
 	bt.InsertNode(10)
 
-	if len(bt.root.keys) != 1 {
-		t.Fatalf("expected root.keys to have 1 entry after one insert, got %v", bt.root.keys)
+	if len(bt.root.Keys) != 1 {
+		t.Fatalf("expected root.keys to have 1 entry after one insert, got %v", bt.root.Keys)
 	}
-	if bt.root.keys[0] != 10 {
-		t.Errorf("expected root.keys[0] == 10, got %d", bt.root.keys[0])
+	if bt.root.Keys[0] != 10 {
+		t.Errorf("expected root.keys[0] == 10, got %d", bt.root.Keys[0])
 	}
 }
 
@@ -197,7 +212,7 @@ func TestInsertKeepsKeysSorted(t *testing.T) {
 		bt.InsertNode(k)
 	}
 
-	got := bt.root.keys
+	got := bt.root.Keys
 	for i := 1; i < len(got); i++ {
 		if got[i-1] > got[i] {
 			t.Errorf("keys not sorted: %v", got)
@@ -266,7 +281,7 @@ func TestRemove_RootCollapsesToChild(t *testing.T) {
 	for _, k := range []int{10, 20, 30, 40, 50} {
 		bt.InsertNode(k)
 	}
-	if bt.root.isLeaf {
+	if bt.root.IsLeaf {
 		t.Fatalf("setup invalid: expected root to have split already")
 	}
 
@@ -277,8 +292,8 @@ func TestRemove_RootCollapsesToChild(t *testing.T) {
 		validateTree(t, bt)
 	}
 
-	if !bt.root.isLeaf {
-		t.Errorf("expected root to have collapsed to a leaf, still internal with keys %v", bt.root.keys)
+	if !bt.root.IsLeaf {
+		t.Errorf("expected root to have collapsed to a leaf, still internal with keys %v", bt.root.Keys)
 	}
 	if _, _, found := bt.SearchNode(50); !found {
 		t.Errorf("expected 50 to survive")
