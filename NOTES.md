@@ -6,6 +6,8 @@ Also my experience in go as I try to get a lot better at it.
 
 ### Pager
 
+---
+
 1. Learning how to program in go, I had the `seek()` function return values not be assigned to any variables therefore, I never knew it was running incorrectly. `_, err := file.seek(...)` is the correct usage, `file.seek(...)` was how I was using it. Any error I got just got lost and I never knew I was mixing up the parameters
 
 2. What happens when a file crashes midwrite and we write a dirty page. I fixed it by having a copy/candidate of the page that we flush first and if any error arises we don't commit it to the file. Basically the lesson learned is to not to destroy any old data during an update.
@@ -14,8 +16,12 @@ Also my experience in go as I try to get a lot better at it.
 
 ### B-Tree
 
+---
+
 1. Found a bug with how I was splitting nodes in a B-tree. I was aliasing the nodes slices of children and keys. Slice aliasing views back into the same slice. It doesn't create a copy if for whatever we write to the rightmost index of the left array it could overwrite or corrupt the right arrays keys and index
 
 2. Found a bug where if we needed to add to the rightmost child on a non leaf node, it would error out since index would be > len(children). The issue was that I wasn't creating the left child nodes correctly which led to off by one error.
 
 3. Nice resource to visualize how btrees and b+trees work: Check out the [btree](https://www.btree.app) and [b+tree](https://bplustree.app). Made by [Ben Dicken](https://www.youtube.com/@benjdicken)! A database expert! In this project we are using a btree (mainly because it's simpler) but databases like Postgres and MySQL use b+tree's
+
+4. TODO: Errors are not handled gracefully. When an error occurs deep in the tree, it will immediately return the error up the recrusive call but will not undo work done already. A potential fix could be to make a copy and edit that copy. If there was error rollback otherwise point btree to new copy (could be issue if we have a large btree).
