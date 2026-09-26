@@ -29,28 +29,17 @@ func New(t int) *Btree {
 	}
 }
 
-
 func (bt *Btree) InsertNode(key int) (error){
-	
-	promoted, right, split, err := bt.root.Insert(key, bt.t);
+	// this logic needs to be moved
+	root, err := bt.root.Insert(key, bt.t)
+
 	if err != nil {
 		return err
 	}
 
-	var newRoot *node
-	var left *node
-
-	if split {
-		left = bt.root
-		newRoot = &node{
-			Keys: []int{promoted},
-			Children: []*node{left,right},
-		}
-		bt.root = newRoot
-	}
+	bt.root = root
 	return nil 
 }
-
 
 
 func (bt *Btree) SearchNode(key int) (*node, int, bool) {
@@ -64,9 +53,4 @@ func (bt *Btree) SearchNode(key int) (*node, int, bool) {
 func (bt *Btree) RemoveNode(key int) error {
 	return bt.root.Remove(key, bt.t)
 }
-
-
-// func Merge(n *Node, i int){
-
-// }
 

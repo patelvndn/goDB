@@ -25,7 +25,30 @@ func findIndex (keys []int, key int) int {
 	return len(keys)
 }
 
-func (n *Node) Insert(key int, t int) (int, *Node, bool, error) {
+// this get's called on the root
+func (n *Node) Insert(key int, t int) (*Node, error) {
+	promoted, right, split, err := n.insert(key, t);
+
+	if err != nil {
+		return nil, err
+	}
+
+	var newRoot *Node
+	var left *Node
+
+	if split {
+		left = n
+		newRoot = &Node{
+			Keys: []int{promoted},
+			Children: []*Node{left,right},
+		}
+		n = newRoot
+	}
+	return n, nil 
+}
+
+
+func (n *Node) insert(key int, t int) (int, *Node, bool, error) {
 	i := findIndex(n.Keys, key) 
 	
 
@@ -39,7 +62,7 @@ func (n *Node) Insert(key int, t int) (int, *Node, bool, error) {
 		// insert key into index i 
 	} else {
 		// propogate the split back up, if it happened
-		promoted, right, split, err := n.Children[i].Insert(key,t);
+		promoted, right, split, err := n.Children[i].insert(key,t);
 		if err != nil {
 			return -1, nil, false, err
 		}
@@ -58,6 +81,44 @@ func (n *Node) Insert(key int, t int) (int, *Node, bool, error) {
 	return 0, nil, false, nil
 }
 
+func (n *Node)split(t int) (int, *Node, bool, error)  {
+	// when we split a node each side should have t
+	// splitting a node means half the keys get shifted to a new node (right node)
+	// and the middle node gets promoted up
+	// n turns into left
+	promoted := n.Keys[t]
+	
+	lk := make([]int, t) // make list with size t
+	copy(lk, n.Keys[:t]) 
+	
+	rk := make([]int, len(n.Keys)-(t+1)) // list with size t-1 ()
+	copy(rk, n.Keys[t+1:]) // dont copy promoted element
+	
+	n.Keys = lk
+	
+	var right *Node
+	
+	// need to split children too, but how?
+	// node could be a leaf still aka it won't have any childrn
+	right = &Node{
+		Keys: rk,
+		IsLeaf: true,
+	}
+	
+	if !n.IsLeaf {
+		rc := make([]*Node, len(n.Children)-(t+1))
+		copy(rc, n.Children[t+1:],)
+		right.Children = rc
+		
+		lc := make([]*Node, t+1)
+		copy(lc, n.Children[:t+1])
+		n.Children = lc
+		
+		right.IsLeaf = false
+	}
+	
+	return promoted, right, true, nil
+}
 
 // search within the node itself to find out where the key exists
 func (n *Node) Search(key int) (*Node, int, bool) {
@@ -74,45 +135,6 @@ func (n *Node) Search(key int) (*Node, int, bool) {
 
 	// recursively search the children that would have the key
 	return n.Children[i].Search(key)
-}
-
-func (n *Node)split(t int) (int, *Node, bool, error)  {
-	// when we split a node each side should have t
-	// splitting a node means half the keys get shifted to a new node (right node)
-	// and the middle node gets promoted up
-	// n turns into left
-	promoted := n.Keys[t]
-
-	lk := make([]int, t)
-	copy(lk, n.Keys[:t])
-
-	rk := make([]int, len(n.Keys)-(t+1))
-	copy(rk, n.Keys[t+1:])
-
-	n.Keys = lk
-	
-	var right *Node
-
-	// need to split children too, but how?
-	// node could be a leaf still aka it won't have any childrn
-	right = &Node{
-			Keys: rk,
-			IsLeaf: true,
-	}
-
-	if !n.IsLeaf {
-		rc := make([]*Node, len(n.Children)-(t+1))
-		copy(rc, n.Children[t+1:],)
-		right.Children = rc
-
-		lc := make([]*Node, t+1)
-		copy(lc, n.Children[:t+1])
-		n.Children = lc
-
-		right.IsLeaf = false
-	}
-
-	return promoted, right, true, nil
 }
 
 func (n *Node) Remove(key int, t int) error {
@@ -137,24 +159,22 @@ func (n *Node) Remove(key int, t int) error {
 		left := n.Children[i]
 		right := n.Children[i+1]
 
-		// removing a node from nodee with size t => 
 		if len(left.Keys) >= t {
 			pred := slices.Max(left.Keys)
-			n.Keys[i] = pred
+			n.Keys[i] = pred // this is the 'delete' -> rewrite i and then remove from left
 			left.Remove(pred, t)
 		} else if len(right.Keys) >= t {
 			succ := slices.Min(right.Keys)
 			n.Keys[i] = succ
 			right.Remove(succ, t)
 		} else {
-			merge(n,i)
-			left.Remove(key, t)
+			// what are we merging? left and right children
+			merge(n,i) // so when both left and right are < t so merging gets us  < 2t
+
 		}
 
-		// 
 	} else {
 		child := n.Children[i]
-		// fix merge
 		child.Remove(i,t)
 	}
 
@@ -163,5 +183,7 @@ func (n *Node) Remove(key int, t int) error {
 
 
 func merge (n *Node, i int) error {
+
+
 	return nil 
 }
