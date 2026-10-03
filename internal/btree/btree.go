@@ -4,16 +4,6 @@ import (
 	"github.com/patelvndn/goDB/internal/btree/btreeNode"
 )
 
-/*
-	An abstraction...
-	view keys as page numbers
-	and nodes are somethign completely different
-	the
-
-	will handle the logic concerned with pager, parsing etc.
-		actual tree logic and insert logic will be handled by node.go in btreeNode module
-*/
-
 type node = btreeNode.Node
 
 
@@ -46,11 +36,15 @@ func (bt *Btree) SearchNode(key int) (*node, int, bool) {
 	return bt.root.Search(key)
 }
 
-// eventually abstract away all the node methods
-// btree module
-// btreeNode module
-// data encoding module 
 func (bt *Btree) RemoveNode(key int) error {
-	return bt.root.Remove(key, bt.t)
+	root, err := bt.root.Remove(key, bt.t)
+
+	if err != nil {
+		return err
+	}
+
+	bt.root = root
+
+	return nil
 }
 

@@ -1,6 +1,7 @@
 package btree
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 
@@ -285,11 +286,15 @@ func TestRemove_RootCollapsesToChild(t *testing.T) {
 		t.Fatalf("setup invalid: expected root to have split already")
 	}
 
+	fmt.Println(bt.root)
 	for _, k := range []int{10, 20, 30, 40} {
+
 		if err := bt.RemoveNode(k); err != nil {
 			t.Fatalf("unexpected error removing %d: %v", k, err)
 		}
 		validateTree(t, bt)
+		fmt.Println("Removed ", k)
+		fmt.Println(bt.root)
 	}
 
 	if !bt.root.IsLeaf {
