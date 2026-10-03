@@ -25,3 +25,5 @@ Also my experience in go as I try to get a lot better at it.
 3. Nice resource to visualize how btrees and b+trees work: Check out the [btree](https://www.btree.app) and [b+tree](https://bplustree.app). Made by [Ben Dicken](https://www.youtube.com/@benjdicken)! A database expert! In this project we are using a btree (mainly because it's simpler) but databases like Postgres and MySQL use b+tree's
 
 4. TODO: Errors are not handled gracefully. When an error occurs deep in the tree, it will immediately return the error up the recrusive call but will not undo work done already. A potential fix could be to make a copy and edit that copy. If there was error rollback otherwise point btree to new copy (could be issue if we have a large btree).
+
+5. Needed a fill method for the Btree, I wasn't handling the case when inner nodes got too small and didn't have enough keys to support. The fill method is quite complicated and has a lot of edge cases. Removing was by far the most difficult part about implementing the b-tree. I also had trouble testing so I added a simple pretty print method to help with debugging.
