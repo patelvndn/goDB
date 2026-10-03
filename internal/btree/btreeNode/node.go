@@ -175,22 +175,58 @@ func (n *Node) remove(key int, t int) (error) {
 		if len(left.Keys) >= t {
 			pred := left.maxKey()
 			n.Keys[i] = pred // this is the 'delete' -> rewrite i and then remove pred from left
-			left.Remove(pred, t)
+			return left.remove(pred, t)
 		} else if len(right.Keys) >= t {
 			succ := right.minKey()
 			n.Keys[i] = succ
-			right.Remove(succ, t)
-		} else {
-			merge(n,i) // so when both left and right are < t so merging gets us  < 2t, then in the merge we have to add i to it, then we remove it from the chil
-			left.Remove(key, t)
+			return right.remove(succ, t)
 		}
+		merge(n,i) // so when both left and right are < t so merging gets us  < 2t, then in the merge we have to add i to it, then we remove it from the chil
+		return left.remove(key, t)
+	} 
 
-	} else {
-		child := n.Children[i]
-		child.Remove(key,t)
+	if len(n.Children[i].Keys) < t {
+		i = n.fill(i, t) // we need to balance our tree by adding keys
 	}
 
-	return nil 
+	return n.Children[i].remove(key, t)
+}
+
+// ensures Children[i] has >= t keys; returns the (possibly shifted) child index
+func (n *Node) fill(i int, t int) int {
+	switch {
+		case i > 0 && len(n.Children[i-1].Keys) >= t:
+			child, sib := n.Children[i], n.Children[i-1]
+			child.Keys = slices.Insert(child.Keys, 0, n.Keys[i-1])
+
+			if !child.IsLeaf {
+				last := len(sib.Children) - 1
+				child.Children = slices.Insert(child.Children, 0, sib.Children[last])
+				sib.Children = sib.Children[:last]
+			}
+
+			n.Keys[i-1] = sib.Keys[len(sib.Keys)-1]
+			sib.Keys = sib.Keys[:len(sib.Keys)-1]
+		case i < len(n.Keys) && len(n.Children[i+1].Keys) >= t:
+			child, sib := n.Children[i], n.Children[i+1]
+			child.Keys = append(child.Keys, n.Keys[i])
+
+			if !child.IsLeaf {
+				child.Children = append(child.Children, sib.Children[0])
+				sib.Children = sib.Children[1:]
+			}
+
+			n.Keys[i] = sib.Keys[0]
+			sib.Keys = sib.Keys[1:]
+		case i < len(n.Keys):
+
+			merge(n, i)
+		default:
+
+			merge(n, i-1)
+			return i - 1
+	}
+	return i
 }
 
 
