@@ -27,3 +27,9 @@ Also my experience in go as I try to get a lot better at it.
 4. TODO: Errors are not handled gracefully. When an error occurs deep in the tree, it will immediately return the error up the recrusive call but will not undo work done already. A potential fix could be to make a copy and edit that copy. If there was error rollback otherwise point btree to new copy (could be issue if we have a large btree).
 
 5. Needed a fill method for the Btree, I wasn't handling the case when inner nodes got too small and didn't have enough keys to support. The fill method is quite complicated and has a lot of edge cases. Removing was by far the most difficult part about implementing the b-tree. I also had trouble testing so I added a simple pretty print method to help with debugging.
+
+### Linking Pager - Btree
+
+---
+
+1. It's hard to conceptualize how to link the Btree to the pager? Does each ID corresponed to a page? Does each node have it's own page. How do I determine the optimal page size. Will need to do a bit more research as I move forward.
