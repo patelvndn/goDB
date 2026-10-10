@@ -18,27 +18,25 @@ var PAGE_SIZE int = 4000 // 4 kb page size
 */
 
 func Encode(n *Node, t int) ([]byte, error) {
-	childrenLength := PAGE_ID_BYTES * (2*t-1)
-	keyLength := KEY_BYTES * len(n.Keys)
-
-	payload := make([]byte, 1 + childrenLength + keyLength)
-
+	
+	childrenLengthBytes := PAGE_ID_BYTES * (2*t-1)
+	payload := make([]byte, 1 + childrenLengthBytes)
+	
 	if n.IsLeaf {
 		payload[0] = 1
 	}
-
+	
 	for _, c := range n.Children {
 		binary.LittleEndian.AppendUint16(payload, c)
 	}
 	
-	// we reserve 4 bytes for rle which is generous tbh
+	keyLength := KEY_BYTES * len(n.Keys)
+	// we reserve 4 bytes for rle which is 
 	var keySize uint32  = uint32(len(n.Keys))
 
-	binary
-
-
-
-
+	for _, k := range n.Keys {
+		binary.LittleEndian.AppendUint32(k)
+	}
 }
 
 func Decode(bytes []byte) (*Node, error) {
