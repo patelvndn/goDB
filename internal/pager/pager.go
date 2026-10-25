@@ -8,9 +8,9 @@ import (
 )
 
 type Page struct {
-	id uint32
-	data []byte
-	dirty bool
+	Id uint16
+	Data []byte
+	Dirty bool
 }
 
 // recall, pager does not need to know what each byte means
@@ -18,7 +18,7 @@ type Page struct {
 type Pager struct {
 	file *os.File
 	pageSize int
-	pages map[uint32]*Page // cache
+	pages map[uint16]*Page // cache
 }
 
 const (
@@ -34,12 +34,12 @@ func New(fileName string, pageSize int) (*Pager, error) {
 		return nil, err
 	}
 
-	p := &Pager{file: file, pageSize: pageSize, pages: make(map[uint32]*Page)}
+	p := &Pager{file: file, pageSize: pageSize, pages: make(map[uint16]*Page)}
 	
 	return p, nil 
 } 
 
-func (p *Pager) ReadPage(id uint32) (*Page, error){
+func (p *Pager) ReadPage(id uint16) (*Page, error){
 	// lets keep it simple for now
 	// no metadata, just straight pages
 
@@ -76,9 +76,9 @@ func (p *Pager) ReadPage(id uint32) (*Page, error){
 	}
 
 	page := &Page{
-		data: data,
-		id: id,
-		dirty: false,
+		Data: data,
+		Id: id,
+		Dirty: false,
 	}
 	
 	p.pages[id] = page
@@ -86,7 +86,7 @@ func (p *Pager) ReadPage(id uint32) (*Page, error){
 
 }
 
-func (p *Pager) WritePage(id uint32, newData []byte) (*Page, error){
+func (p *Pager) WritePage(id uint16, newData []byte) (*Page, error){
 	_, err := p.ReadPage(id)
 
 	if err != nil {
@@ -102,14 +102,14 @@ func (p *Pager) WritePage(id uint32, newData []byte) (*Page, error){
 	}
 
 	// create a copy in case flush fails
-	candidate := &Page{id: id, data: newData, dirty: true}
+	candidate := &Page{Id: id, Data: newData, Dirty: true}
 	err = p.flush(candidate)
 
 	if err != nil {
 		return nil, err
 	}
 
-	candidate.dirty = false
+	candidate.Dirty = false
 	p.pages[id] = candidate
 
 	return candidate, nil
@@ -126,7 +126,7 @@ func (p *Pager) AllocatePage() (*Page, error) {
 	prevFileSize := info.Size()
 
 	// get page id
-	id := uint32(info.Size()) / uint32(p.pageSize)
+	id := uint16(info.Size()) / uint16(p.pageSize)
 
 	// go to end of file and allocate pageSize number of bytes
 	err = allocateBytes(p, prevFileSize)
@@ -135,9 +135,9 @@ func (p *Pager) AllocatePage() (*Page, error) {
 	}
 	
 	page := &Page{
-		id: uint32(id),
-		data: make([]byte, p.pageSize),
-		dirty: false,
+		Id: uint16(id),
+		Data: make([]byte, p.pageSize),
+		Dirty: false,
 	} 
 	
 	p.pages[id] = page
@@ -156,7 +156,7 @@ func (p *Pager) Close() error {
 
 	for _, page := range(p.pages){
 	
-		if page.dirty {
+		if page.Dirty {
 			err = p.flush(page)
 		}
 
@@ -205,11 +205,11 @@ func allocateBytes(p *Pager, prevFileSize int64) error {
 
 func (p *Pager) flush(page *Page) error {
 	
-	if _, err := p.file.Seek(int64(page.id)*int64(p.pageSize), io.SeekStart); err != nil {
+	if _, err := p.file.Seek(int64(page.Id)*int64(p.pageSize), io.SeekStart); err != nil {
 		return err
 	}
 
-	bytesWritten, err := p.file.Write(page.data)
+	bytesWritten, err := p.file.Write(page.Data)
 
 	if bytesWritten != p.pageSize {
 		// todo: roll back if this happens

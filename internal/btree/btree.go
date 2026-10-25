@@ -5,14 +5,12 @@ import (
 	"github.com/patelvndn/goDB/internal/pager"
 )
 
-type node = btreeNode.Node
 type pgr = pager.Pager
-type page = pager.Page
+var pageSize int = 4096
 
-var pageSize int = 4024
-
+type Node = btreeNode.Node
 type Btree struct {
-	root *node
+	root *Node
 	t int
 	pager *pgr
 }
@@ -32,9 +30,9 @@ func New(t int) *Btree {
 	}
 }
 
-func (bt *Btree) InsertNode(key int) (error){
+func (bt *Btree) InsertNode(key uint32) (error){
 	// this logic needs to be moved
-	root, err := bt.root.Insert(key, bt.t)
+	root, err := bt.root.Insert(key, bt.t, bt.pager)
 
 	if err != nil {
 		return err
@@ -45,12 +43,12 @@ func (bt *Btree) InsertNode(key int) (error){
 }
 
 
-func (bt *Btree) SearchNode(key int) (*node, int, bool) {
-	return bt.root.Search(key)
+func (bt *Btree) SearchNode(key uint32) (*Node, int, bool) {
+	return bt.root.Search(key, bt.t, bt.pager)
 }
 
-func (bt *Btree) RemoveNode(key int) error {
-	root, err := bt.root.Remove(key, bt.t)
+func (bt *Btree) RemoveNode(key uint32) error {
+	root, err := bt.root.Remove(key, bt.t, bt.pager)
 
 	if err != nil {
 		return err

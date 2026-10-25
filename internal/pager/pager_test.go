@@ -90,16 +90,16 @@ func TestAllocatePage_GrowsFileBySinglePageSize(t *testing.T) {
 func TestAllocatePage_ReturnsDistinctIDsAcrossCalls(t *testing.T) {
 	p, _ := newTestPager(t)
 
-	seen := make(map[uint32]bool)
+	seen := make(map[uint16]bool)
 	for i := 0; i < 5; i++ {
 		page, err := p.AllocatePage()
 		if err != nil {
 			t.Fatalf("AllocatePage() call %d returned error: %v", i, err)
 		}
-		if seen[page.id] {
-			t.Errorf("AllocatePage() call %d returned id %d, which was already handed out", i, page.id)
+		if seen[page.Id] {
+			t.Errorf("AllocatePage() call %d returned id %d, which was already handed out", i, page.Id)
 		}
-		seen[page.id] = true
+		seen[page.Id] = true
 	}
 
 	if len(seen) != 5 {
@@ -117,16 +117,16 @@ func TestReadPage_ReturnsDataForJustAllocatedPage(t *testing.T) {
 		t.Fatalf("AllocatePage() returned error: %v", err)
 	}
 
-	page, err := p.ReadPage(allocated.id)
+	page, err := p.ReadPage(allocated.Id)
 	if err != nil {
-		t.Fatalf("ReadPage(%d) returned error for a page that was just allocated: %v", allocated.id, err)
+		t.Fatalf("ReadPage(%d) returned error for a page that was just allocated: %v", allocated.Id, err)
 	}
 
-	if page.id != allocated.id {
-		t.Errorf("expected page id %d, got %d", allocated.id, page.id)
+	if page.Id != allocated.Id {
+		t.Errorf("expected page id %d, got %d", allocated.Id, page.Id)
 	}
-	if len(page.data) != testPageSize {
-		t.Errorf("expected page data length %d, got %d", testPageSize, len(page.data))
+	if len(page.Data) != testPageSize {
+		t.Errorf("expected page data length %d, got %d", testPageSize, len(page.Data))
 	}
 }
 
@@ -162,34 +162,34 @@ func TestReadPage_DistinctPagesReturnDistinctData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AllocatePage() failed: %v", err)
 	}
-	if firstAlloc.id == secondAlloc.id {
-		t.Fatalf("test setup invalid: both allocations returned the same id %d", firstAlloc.id)
+	if firstAlloc.Id == secondAlloc.Id {
+		t.Fatalf("test setup invalid: both allocations returned the same id %d", firstAlloc.Id)
 	}
 
 	dataA := bytes.Repeat([]byte{0xAA}, testPageSize)
 	dataB := bytes.Repeat([]byte{0xBB}, testPageSize)
 
-	if _, err := p.WritePage(firstAlloc.id, dataA); err != nil {
-		t.Fatalf("WritePage(%d) failed: %v", firstAlloc.id, err)
+	if _, err := p.WritePage(firstAlloc.Id, dataA); err != nil {
+		t.Fatalf("WritePage(%d) failed: %v", firstAlloc.Id, err)
 	}
-	if _, err := p.WritePage(secondAlloc.id, dataB); err != nil {
-		t.Fatalf("WritePage(%d) failed: %v", secondAlloc.id, err)
-	}
-
-	readA, err := p.ReadPage(firstAlloc.id)
-	if err != nil {
-		t.Fatalf("ReadPage(%d) failed: %v", firstAlloc.id, err)
-	}
-	readB, err := p.ReadPage(secondAlloc.id)
-	if err != nil {
-		t.Fatalf("ReadPage(%d) failed: %v", secondAlloc.id, err)
+	if _, err := p.WritePage(secondAlloc.Id, dataB); err != nil {
+		t.Fatalf("WritePage(%d) failed: %v", secondAlloc.Id, err)
 	}
 
-	if !bytes.Equal(readA.data, dataA) {
-		t.Errorf("page %d: expected data %x, got %x", firstAlloc.id, dataA, readA.data)
+	readA, err := p.ReadPage(firstAlloc.Id)
+	if err != nil {
+		t.Fatalf("ReadPage(%d) failed: %v", firstAlloc.Id, err)
 	}
-	if !bytes.Equal(readB.data, dataB) {
-		t.Errorf("page %d: expected data %x, got %x", secondAlloc.id, dataB, readB.data)
+	readB, err := p.ReadPage(secondAlloc.Id)
+	if err != nil {
+		t.Fatalf("ReadPage(%d) failed: %v", secondAlloc.Id, err)
+	}
+
+	if !bytes.Equal(readA.Data, dataA) {
+		t.Errorf("page %d: expected data %x, got %x", firstAlloc.Id, dataA, readA.Data)
+	}
+	if !bytes.Equal(readB.Data, dataB) {
+		t.Errorf("page %d: expected data %x, got %x", secondAlloc.Id, dataB, readB.Data)
 	}
 }
 
@@ -201,15 +201,15 @@ func TestReadPage_RepeatedCallsReturnSameCachedPointer(t *testing.T) {
 		t.Fatalf("AllocatePage() failed: %v", err)
 	}
 	data := bytes.Repeat([]byte{0x42}, testPageSize)
-	if _, err := p.WritePage(allocated.id, data); err != nil {
+	if _, err := p.WritePage(allocated.Id, data); err != nil {
 		t.Fatalf("WritePage() failed: %v", err)
 	}
 
-	first, err := p.ReadPage(allocated.id)
+	first, err := p.ReadPage(allocated.Id)
 	if err != nil {
 		t.Fatalf("ReadPage() failed: %v", err)
 	}
-	second, err := p.ReadPage(allocated.id)
+	second, err := p.ReadPage(allocated.Id)
 	if err != nil {
 		t.Fatalf("ReadPage() failed: %v", err)
 	}
@@ -234,16 +234,16 @@ func TestWritePage_ThenReadPageRoundTrips(t *testing.T) {
 		t.Fatalf("test data length %d does not match testPageSize %d", len(want), testPageSize)
 	}
 
-	if _, err := p.WritePage(allocated.id, want); err != nil {
+	if _, err := p.WritePage(allocated.Id, want); err != nil {
 		t.Fatalf("WritePage() returned error: %v", err)
 	}
 
-	got, err := p.ReadPage(allocated.id)
+	got, err := p.ReadPage(allocated.Id)
 	if err != nil {
 		t.Fatalf("ReadPage() returned error: %v", err)
 	}
-	if !bytes.Equal(got.data, want) {
-		t.Errorf("expected data %q, got %q", want, got.data)
+	if !bytes.Equal(got.Data, want) {
+		t.Errorf("expected data %q, got %q", want, got.Data)
 	}
 }
 
@@ -256,7 +256,7 @@ func TestWritePage_PersistsToDiskAcrossPagerInstances(t *testing.T) {
 	}
 
 	want := bytes.Repeat([]byte{0xCD}, testPageSize)
-	if _, err := p.WritePage(allocated.id, want); err != nil {
+	if _, err := p.WritePage(allocated.Id, want); err != nil {
 		t.Fatalf("WritePage() failed: %v", err)
 	}
 
@@ -267,12 +267,12 @@ func TestWritePage_PersistsToDiskAcrossPagerInstances(t *testing.T) {
 		t.Fatalf("failed to reopen pager on same file: %v", err)
 	}
 
-	got, err := p2.ReadPage(allocated.id)
+	got, err := p2.ReadPage(allocated.Id)
 	if err != nil {
 		t.Fatalf("ReadPage() on reopened pager failed: %v", err)
 	}
-	if !bytes.Equal(got.data, want) {
-		t.Errorf("data did not persist to disk: expected %x, got %x", want, got.data)
+	if !bytes.Equal(got.Data, want) {
+		t.Errorf("data did not persist to disk: expected %x, got %x", want, got.Data)
 	}
 }
 
@@ -285,20 +285,20 @@ func TestWritePage_PadsShortDataToPageSize(t *testing.T) {
 	}
 
 	short := []byte("hi")
-	page, err := p.WritePage(allocated.id, short)
+	page, err := p.WritePage(allocated.Id, short)
 	if err != nil {
 		t.Fatalf("WritePage() failed: %v", err)
 	}
 
-	if len(page.data) != testPageSize {
-		t.Fatalf("expected page data padded to %d bytes, got %d", testPageSize, len(page.data))
+	if len(page.Data) != testPageSize {
+		t.Fatalf("expected page data padded to %d bytes, got %d", testPageSize, len(page.Data))
 	}
-	if !bytes.Equal(page.data[:len(short)], short) {
-		t.Errorf("expected data to start with %q, got %q", short, page.data[:len(short)])
+	if !bytes.Equal(page.Data[:len(short)], short) {
+		t.Errorf("expected data to start with %q, got %q", short, page.Data[:len(short)])
 	}
 	for i := len(short); i < testPageSize; i++ {
-		if page.data[i] != 0 {
-			t.Errorf("expected padding byte at index %d to be 0, got %d", i, page.data[i])
+		if page.Data[i] != 0 {
+			t.Errorf("expected padding byte at index %d to be 0, got %d", i, page.Data[i])
 		}
 	}
 }
@@ -312,7 +312,7 @@ func TestWritePage_RejectsDataLargerThanPageSize(t *testing.T) {
 	}
 
 	tooBig := make([]byte, testPageSize+1)
-	if _, err := p.WritePage(allocated.id, tooBig); err == nil {
+	if _, err := p.WritePage(allocated.Id, tooBig); err == nil {
 		t.Error("expected WritePage() to return an error for oversized data, got nil")
 	}
 }

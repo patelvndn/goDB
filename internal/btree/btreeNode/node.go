@@ -2,15 +2,19 @@ package btreeNode
 
 import (
 	"errors"
-	"fmt"
 	"slices"
-	"strings"
+
+	"github.com/patelvndn/goDB/internal/pager"
 )
 
+type pgr = pager.Pager
+type page = pager.Page
+
 type Node struct {
-	Children []*Node
-	Keys []int
 	IsLeaf bool
+	PageId uint16
+	Children []uint16
+	Keys []uint32 // these might not always be integers... 
 }
 
 func New() *Node {
@@ -18,7 +22,7 @@ func New() *Node {
 }
 
 
-func findIndex (keys []int, key int) int {
+func findIndex (keys []uint32, key uint32) int {
 	for i, k := range keys {
 		if key <= k {
 			return i
@@ -28,21 +32,21 @@ func findIndex (keys []int, key int) int {
 }
 
 // this get's called on the root
-func (n *Node) Insert(key int, t int) (*Node, error) {
-	promoted, right, split, err := n.insert(key, t);
+func (n *Node) Insert(key uint32, t int, pager *pgr) (*Node, error) {
+	promoted, right, split, err := n.insert(key, t, pager);
 
 	if err != nil {
 		return nil, err
 	}
 
 	var newRoot *Node
-	var left *Node
+	var left uint16
 
 	if split {
-		left = n
+		left = n.PageId
 		newRoot = &Node{
-			Keys: []int{promoted},
-			Children: []*Node{left,right},
+			Keys: []uint32{promoted},
+			Children: []uint16{left,right.PageId},
 		}
 		n = newRoot
 	}
@@ -50,13 +54,13 @@ func (n *Node) Insert(key int, t int) (*Node, error) {
 }
 
 
-func (n *Node) insert(key int, t int) (int, *Node, bool, error) {
+func (n *Node) insert(key uint32, t int, pager *pgr) (uint32, *Node, bool, error) {
 	i := findIndex(n.Keys, key) 
 	
 
 	// this is the node with the key
 	if 0 <= i && i < len(n.Keys) && n.Keys[i] == key {
-		return -1, nil, false, errors.New("Key already exists in node")
+		return 0, nil, false, errors.New("Key already exists in node")
 	}
 
 	if n.IsLeaf {
@@ -64,57 +68,65 @@ func (n *Node) insert(key int, t int) (int, *Node, bool, error) {
 		// insert key into index i 
 	} else {
 		// propogate the split back up, if it happened
-		promoted, right, split, err := n.Children[i].insert(key,t);
+		var child *Node
+		var err error
+		
+		if child, err = decodeChild(n.Children[i], t, pager); err != nil {
+			return 0, nil, false, err
+		}
+
+		promoted, right, split, err := child.insert(key,t, pager);
 		if err != nil {
-			return -1, nil, false, err
+			return 0, nil, false, err
 		}
 
 		if split {
 			n.Keys = slices.Insert(n.Keys, i, promoted)
-			n.Children = slices.Insert(n.Children, i+1, right)
+			n.Children = slices.Insert(n.Children, i+1, right.PageId)
 		}
 
 	}
 
-	// split
+	// split when we have 2t keys
 	if len(n.Keys) > 2*t-1 {
         return n.split(t)
     } 
 	return 0, nil, false, nil
 }
 
-func (n *Node)split(t int) (int, *Node, bool, error)  {
-	// when we split a node each side should have t
+func (n *Node)split(t int) (uint32, *Node, bool, error)  {
 	// splitting a node means half the keys get shifted to a new node (right node)
-	// and the middle node gets promoted up
+	// and the middle key (t) gets promoted up so 0 ... t-1 = left has t keys and right will have t-1 keys
 	// n turns into left
 	promoted := n.Keys[t]
 	
-	lk := make([]int, t) // make list with size t
-	copy(lk, n.Keys[:t]) 
+	// 0,1, ... t-1
+	leftKeys := make([]uint32, t) // make list with size t
+	copy(leftKeys, n.Keys[:t]) 
 	
-	rk := make([]int, len(n.Keys)-(t+1)) // list with size t-1 ()
-	copy(rk, n.Keys[t+1:]) // dont copy promoted element
+	// t+1, ... 2t
+	rightKeys := make([]uint32, t-1) 
+	copy(rightKeys, n.Keys[t+1:]) // dont copy promoted element
 	
-	n.Keys = lk
+	n.Keys = leftKeys
 	
 	var right *Node
 	
 	// need to split children too, but how?
 	// node could be a leaf still aka it won't have any childrn
 	right = &Node{
-		Keys: rk,
+		Keys: rightKeys,
 		IsLeaf: true,
 	}
 	
 	if !n.IsLeaf {
-		rc := make([]*Node, len(n.Children)-(t+1))
-		copy(rc, n.Children[t+1:],)
-		right.Children = rc
+		rightChildren := make([]uint16, len(n.Children)-(t+1))
+		copy(rightChildren, n.Children[t+1:],)
+		right.Children = rightChildren
 		
-		lc := make([]*Node, t+1)
-		copy(lc, n.Children[:t+1])
-		n.Children = lc
+		leftChildren := make([]uint16, t+1)
+		copy(leftChildren, n.Children[:t+1])
+		n.Children = leftChildren
 		
 		right.IsLeaf = false
 	}
@@ -123,7 +135,7 @@ func (n *Node)split(t int) (int, *Node, bool, error)  {
 }
 
 // search within the node itself to find out where the key exists
-func (n *Node) Search(key int) (*Node, int, bool) {
+func (n *Node) Search(key uint32, t int, pager *pgr) (*Node, int, bool) {
 	i := findIndex(n.Keys, key)		
 	// this is the node with the key
 	if i < len(n.Keys) && n.Keys[i] == key {
@@ -136,21 +148,31 @@ func (n *Node) Search(key int) (*Node, int, bool) {
 	}
 
 	// recursively search the children that would have the key
-	return n.Children[i].Search(key)
+	child, err := decodeChild(n.Children[i],t, pager)
+	if err!= nil {
+		return nil, 0, false
+	}
+	return child.Search(key, t, pager)
 }
 
-func (n *Node) Remove(key int, t int) (*Node, error) {
-	if err := n.remove(key, t); err != nil {
+func (n *Node) Remove(key uint32, t int, pager *pgr) (*Node, error) {
+	
+	if err := n.remove(key, t, pager); err != nil {
 		return n, err
 	}
 
 	if len(n.Keys) == 0 && !n.IsLeaf {
-		return n.Children[0], nil
+		child, err := decodeChild(n.Children[0], t, pager)
+		if err != nil {
+			return nil, err
+		}
+		return child, nil
 	}
+
 	return n, nil
 }
 
-func (n *Node) remove(key int, t int) (error) {
+func (n *Node) remove(key uint32, t int, pager *pgr) (error) {
 
 	i := findIndex(n.Keys, key)
 	found := false
@@ -167,36 +189,48 @@ func (n *Node) remove(key int, t int) (error) {
 		return errors.New("Key not found error")
 	}
 
-	if found {
-		// key is in this internal node
-		left := n.Children[i]
-		right := n.Children[i+1]
-
-		if len(left.Keys) >= t {
-			pred := left.maxKey()
-			n.Keys[i] = pred // this is the 'delete' -> rewrite i and then remove pred from left
-			return left.remove(pred, t)
-		} else if len(right.Keys) >= t {
-			succ := right.minKey()
-			n.Keys[i] = succ
-			return right.remove(succ, t)
-		}
-		merge(n,i) // so when both left and right are < t so merging gets us  < 2t, then in the merge we have to add i to it, then we remove it from the chil
-		return left.remove(key, t)
-	} 
-
-	if len(n.Children[i].Keys) < t {
-		i = n.fill(i, t) // we need to balance our tree by adding keys
+	left, err := decodeChild(n.Children[i],t, pager)
+	if err != nil {
+		return err
 	}
 
-	return n.Children[i].remove(key, t)
+	right, err := decodeChild(n.Children[i+1], t, pager)
+	if err != nil {
+		return err
+	}
+
+	if found {
+		if len(left.Keys) >= t {
+			pred := left.maxKey(t, pager)
+			n.Keys[i] = pred // this is the 'delete' -> rewrite i and then remove pred from left
+			return left.remove(pred, t, pager)
+		} else if len(right.Keys) >= t {
+			succ := right.minKey(t, pager)
+			n.Keys[i] = succ
+			return right.remove(succ, t, pager)
+		}
+		merge(n,i, t, pager) // so when both left and right are < t so merging gets us  < 2t, then in the merge we have to add i to it, then we remove it from the chil
+		return left.remove(key, t, pager)
+	} 
+
+	if len(left.Keys) < t {
+		i = n.fill(i, t, pager) // we need to balance our tree by adding keys
+	}
+
+	return left.remove(key, t, pager)
 }
 
 // ensures Children[i] has >= t keys; returns the (possibly shifted) child index
-func (n *Node) fill(i int, t int) int {
+func (n *Node) fill(i int, t int, pager *pgr) int {
+
+	child, _ := decodeChild(n.Children[i],t, pager)
+	left_sib, _ := decodeChild(n.Children[i-1], t, pager)
+	right_sib, _ := decodeChild(n.Children[i+1], t, pager)
+
 	switch {
-		case i > 0 && len(n.Children[i-1].Keys) >= t:
-			child, sib := n.Children[i], n.Children[i-1]
+		case i > 0 && len(left_sib.Keys) >= t:
+			
+			sib := left_sib
 			child.Keys = slices.Insert(child.Keys, 0, n.Keys[i-1])
 
 			if !child.IsLeaf {
@@ -207,8 +241,8 @@ func (n *Node) fill(i int, t int) int {
 
 			n.Keys[i-1] = sib.Keys[len(sib.Keys)-1]
 			sib.Keys = sib.Keys[:len(sib.Keys)-1]
-		case i < len(n.Keys) && len(n.Children[i+1].Keys) >= t:
-			child, sib := n.Children[i], n.Children[i+1]
+		case i < len(n.Keys) && len(right_sib.Keys) >= t:
+			sib := right_sib
 			child.Keys = append(child.Keys, n.Keys[i])
 
 			if !child.IsLeaf {
@@ -219,36 +253,34 @@ func (n *Node) fill(i int, t int) int {
 			n.Keys[i] = sib.Keys[0]
 			sib.Keys = sib.Keys[1:]
 		case i < len(n.Keys):
-
-			merge(n, i)
+			merge(n, i, t, pager)
 		default:
-
-			merge(n, i-1)
+			merge(n, i-1, t, pager)
 			return i - 1
 	}
 	return i
 }
 
 
-func (n *Node) maxKey() int {
+func (n *Node) maxKey(t int, pager *pgr) uint32 {
 	for !n.IsLeaf{
-		n = n.Children[len(n.Children)-1]
+		n, _ = decodeChild(n.Children[len(n.Children)-1],t, pager)
 	}
 	return n.Keys[len(n.Keys) - 1]
 }
 
-func (n *Node) minKey() int{
-		for !n.IsLeaf{
-		n = n.Children[0]
+func (n *Node) minKey(t int, pager *pgr) uint32 {
+	for !n.IsLeaf{
+		n, _ = decodeChild(n.Children[0],t, pager)
 	}
 	return n.Keys[0]
 }
 
 // a handle merge function is probably needed? maybe this can live in btree? 
-func merge (n *Node, i int) {
+func merge (n *Node, i int, t int, pager *pgr) {
 	// we want to merge left and right together and remove the node at index i 
-	left := n.Children[i]
-	right := n.Children[i+1]
+	left, _ := decodeChild(n.Children[i],t, pager)
+	right, _ := decodeChild(n.Children[i+1], t, pager)
 
 	left.Keys = append(left.Keys, n.Keys[i])
 	left.Keys = append(left.Keys, right.Keys...)
@@ -260,38 +292,51 @@ func merge (n *Node, i int) {
 	
 }
 
-func (n *Node) String() string {
-	var sb strings.Builder
-	n.write(&sb, "", true, true)
-	return sb.String()
+func decodeChild(pageId uint16, t int, pager *pgr) (*Node, error){
+	page, err := pager.ReadPage(pageId)
+	if err != nil {
+		return nil, err
+	}
+	return decode(page.Data,t), nil
 }
 
-func (n *Node) write(sb *strings.Builder, prefix string, isLast bool, isRoot bool) {
-	label := fmt.Sprintf("%v", n.Keys)
-	if n.IsLeaf {
-		label += " (leaf)"
-	}
+// func (n *Node) String() string {
+// 	var sb strings.Builder
+// 	n.write(&sb, "", true, true)
+// 	return sb.String()
+// }
 
-	if isRoot {
-		sb.WriteString(label + "\n")
-	} else {
-		branch := "├── "
-		if isLast {
-			branch = "└── "
-		}
-		sb.WriteString(prefix + branch + label + "\n")
-	}
+// func (n *Node) write(sb *strings.Builder, prefix string, isLast bool, isRoot bool) {
+// 	label := fmt.Sprintf("%v", n.Keys)
+// 	if n.IsLeaf {
+// 		label += " (leaf)"
+// 	}
 
-	childPrefix := prefix
-	if !isRoot {
-		if isLast {
-			childPrefix += "    "
-		} else {
-			childPrefix += "│   "
-		}
-	}
+// 	if isRoot {
+// 		sb.WriteString(label + "\n")
+// 	} else {
+// 		branch := "├── "
+// 		if isLast {
+// 			branch = "└── "
+// 		}
+// 		sb.WriteString(prefix + branch + label + "\n")
+// 	}
 
-	for i, c := range n.Children {
-		c.write(sb, childPrefix, i == len(n.Children)-1, false)
-	}
-}
+// 	childPrefix := prefix
+// 	if !isRoot {
+// 		if isLast {
+// 			childPrefix += "    "
+// 		} else {
+// 			childPrefix += "│   "
+// 		}
+// 	}
+
+// 	for i, pageId := range n.Children {
+// 		child, err := decodeChild(n.Children[i],t, pager)
+// 		if err != nil {
+// 			return err
+// 		}
+
+// 		c.write(sb, childPrefix, i == len(n.Children)-1, false)
+// 	}
+// }

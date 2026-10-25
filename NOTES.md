@@ -35,3 +35,7 @@ Also my experience in go as I try to get a lot better at it.
 1. It's hard to conceptualize how to link the Btree to the pager? Does each ID corresponed to a page? Does each node have it's own page. How do I determine the optimal page size. Will need to do a bit more research as I move forward.
 
 2. I started working on the encoding and decoding of node structs into an array of bytes. I decided to use LittleEndian encoding for conversion reasons. Althought I believe it doesn't really matter which one I used. Go has a binary/encoding package which helps a lot. The design I'm following can be seen in design/v1
+
+3. I have got myself into a large mess with the encoding logic. I'm repeatedly decoding the bytes back into Node characters and rewriting everything to match. I believe there is a better way to do this and I'm going to see if theres a way I can make this a lot easier.
+
+4. I'm giving myself a proper finish line now... a key value store, slotted pages, and a b-tree index. I switched to using slotted pages since it was alot easier for variable length data. This also lets me decode key data into `[]byte` so that a higher level package can decode it furhter into what it actually should be

@@ -4,11 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
-
-	"github.com/patelvndn/goDB/internal/btree/btreeNode"
 )
-
-type Node = btreeNode.Node
 
 // ---- invariant checker ----
 // Walks the tree after every operation and fails loudly at the first
@@ -28,6 +24,7 @@ func leafDepth(n *Node, d int) int {
 	if n.IsLeaf {
 		return d
 	}
+	
 	return leafDepth(n.Children[0], d+1)
 }
 
@@ -156,7 +153,7 @@ func TestInsertThenSearchSingleKey(t *testing.T) {
 
 func TestInsertMultipleThenSearchEach(t *testing.T) {
 	bt := New(2)
-	keys := []int{10, 20, 5, 15, 25, 1, 30, 3, 2, 4, 44, 67, 87, 546, 12}
+	keys := []uint32{10, 20, 5, 15, 25, 1, 30, 3, 2, 4, 44, 67, 87, 546, 12}
 	for _, k := range keys {
 		bt.InsertNode(k)
 	}
@@ -209,7 +206,7 @@ func TestInsertPopulatesLeafKeys(t *testing.T) {
 
 func TestInsertKeepsKeysSorted(t *testing.T) {
 	bt := New(2)
-	for _, k := range []int{30, 10, 20} {
+	for _, k := range []uint32{30, 10, 20} {
 		bt.InsertNode(k)
 	}
 
@@ -233,7 +230,7 @@ func TestRemove_EmptyTree(t *testing.T) {
 
 func TestRemove_NonExistentKey(t *testing.T) {
 	bt := New(2)
-	for _, k := range []int{10, 20, 30} {
+	for _, k := range []uint32{10, 20, 30} {
 		bt.InsertNode(k)
 	}
 	if err := bt.RemoveNode(99); err == nil {
@@ -257,7 +254,7 @@ func TestRemove_LeafNoUnderflow(t *testing.T) {
 	// t=2: a leaf can hold up to 3 keys, so removing one from a
 	// 3-key leaf shouldn't need to borrow or merge.
 	bt := New(2)
-	for _, k := range []int{10, 20, 30} {
+	for _, k := range []uint32{10, 20, 30} {
 		bt.InsertNode(k)
 	}
 
@@ -267,7 +264,7 @@ func TestRemove_LeafNoUnderflow(t *testing.T) {
 	if _, _, found := bt.SearchNode(20); found {
 		t.Errorf("expected 20 to be removed")
 	}
-	for _, k := range []int{10, 30} {
+	for _, k := range []uint32{10, 30} {
 		if _, _, found := bt.SearchNode(k); !found {
 			t.Errorf("expected %d to still be found", k)
 		}
@@ -279,7 +276,7 @@ func TestRemove_RootCollapsesToChild(t *testing.T) {
 	// Force at least one split, then remove enough keys that the
 	// root should shrink back down to a single leaf.
 	bt := New(2)
-	for _, k := range []int{10, 20, 30, 40, 50} {
+	for _, k := range []uint32{10, 20, 30, 40, 50} {
 		bt.InsertNode(k)
 	}
 	if bt.root.IsLeaf {
@@ -287,7 +284,7 @@ func TestRemove_RootCollapsesToChild(t *testing.T) {
 	}
 
 	fmt.Println(bt.root)
-	for _, k := range []int{10, 20, 30, 40} {
+	for _, k := range []uint32{10, 20, 30, 40} {
 
 		if err := bt.RemoveNode(k); err != nil {
 			t.Fatalf("unexpected error removing %d: %v", k, err)
@@ -310,12 +307,12 @@ func TestRemove_RootCollapsesToChild(t *testing.T) {
 
 func TestRemove_AllKeysAscending(t *testing.T) {
 	bt := New(2)
-	keys := []int{10, 20, 5, 15, 25, 1, 30, 3, 2, 4, 44, 67, 87, 546, 12}
+	keys := []uint32{10, 20, 5, 15, 25, 1, 30, 3, 2, 4, 44, 67, 87, 546, 12}
 	for _, k := range keys {
 		bt.InsertNode(k)
 	}
 
-	sorted := append([]int(nil), keys...)
+	sorted := append([]uint32(nil), keys...)
 	sortInts(sorted)
 
 	for idx, k := range sorted {
@@ -336,12 +333,12 @@ func TestRemove_AllKeysAscending(t *testing.T) {
 
 func TestRemove_AllKeysDescending(t *testing.T) {
 	bt := New(2)
-	keys := []int{10, 20, 5, 15, 25, 1, 30, 3, 2, 4, 44, 67, 87, 546, 12}
+	keys := []uint32{10, 20, 5, 15, 25, 1, 30, 3, 2, 4, 44, 67, 87, 546, 12}
 	for _, k := range keys {
 		bt.InsertNode(k)
 	}
 
-	sorted := append([]int(nil), keys...)
+	sorted := append([]uint32(nil), keys...)
 	sortInts(sorted)
 	reverse(sorted)
 
@@ -361,9 +358,9 @@ func TestRemove_AllKeysDescending(t *testing.T) {
 func TestRemove_RandomOrder(t *testing.T) {
 	r := rand.New(rand.NewSource(42)) // fixed seed: reproducible on failure
 
-	keys := make([]int, 200)
+	keys := make([]uint32, 200)
 	for i := range keys {
-		keys[i] = i
+		keys[i] = uint32(i+1)
 	}
 	r.Shuffle(len(keys), func(i, j int) { keys[i], keys[j] = keys[j], keys[i] })
 
@@ -373,10 +370,10 @@ func TestRemove_RandomOrder(t *testing.T) {
 		validateTree(t, bt)
 	}
 
-	removeOrder := append([]int(nil), keys...)
+	removeOrder := append([]uint32(nil), keys...)
 	r.Shuffle(len(removeOrder), func(i, j int) { removeOrder[i], removeOrder[j] = removeOrder[j], removeOrder[i] })
 
-	present := make(map[int]bool)
+	present := make(map[uint32]bool)
 	for _, k := range keys {
 		present[k] = true
 	}
@@ -407,7 +404,7 @@ func TestRemove_RandomOrder(t *testing.T) {
 
 // ---- small local helpers (or swap in "sort" / "slices" from stdlib) ----
 
-func sortInts(s []int) {
+func sortInts(s []uint32) {
 	for i := 1; i < len(s); i++ {
 		for j := i; j > 0 && s[j-1] > s[j]; j-- {
 			s[j-1], s[j] = s[j], s[j-1]
@@ -415,7 +412,7 @@ func sortInts(s []int) {
 	}
 }
 
-func reverse(s []int) {
+func reverse(s []uint32) {
 	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
 		s[i], s[j] = s[j], s[i]
 	}
