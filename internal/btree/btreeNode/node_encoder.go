@@ -19,6 +19,13 @@ type slot struct {
 	size uint16
 	key uint32
 }
+
+const (
+	PAGE_SIZE uint16 = 4096
+	BYTES_2 int = 2
+	KEY_BYTES int = 4
+)
+
 /*
 	we have a specific schema to follow
 		n.children will be pageIds with uint16
@@ -29,10 +36,6 @@ type slot struct {
 	we know the schema since the schema lives here
 	pages get decoded into headers first
 */
-var PAGE_SIZE int = 4096
-var BYTES_2 int = 2
-var KEY_BYTES int = 4
-
 func encode(n *Node, t int) ([]byte) {
 
 	// we have to recalculate the header... each time	
@@ -45,58 +48,97 @@ func encode(n *Node, t int) ([]byte) {
 
 	payload := make([]byte, PAGE_SIZE)
 
-	encodeHeader(payload, n, t)
-	encodeLeafFlag(payload, n.IsLeaf)
-	encodeChildren(payload, n.Children, 2)
-	encodeKeys(payload, n.Keys, 7 + 4*t)
+	header := encodeHeader(payload, n, t)
+	encodeKeysAndValues(payload, n, header, t) // requires encoding the slots // we en
 
 	return payload
 }
 
-func encodeHeader(payload []byte, n *Node, t int) {
-	isLeaf := 0 
+func encodeHeader(payload []byte, n *Node, t int) *header {
+	var childSize uint16
+	hspace := 5 + uint16(binary.Size(childSize)*(2*t+1))
 
+	var isLeaf uint8 = 0 
 	if n.IsLeaf {
 		isLeaf += 1
 	}
-	payload[0] = byte(isLeaf)
+	payload[0] = isLeaf
 
 	// free key is headerSize + slotSize * length of n.keys
 	// what is header size? we are given t 
 	// remember total number of possible children are... if we split on size > 2t -1 so if we split on 2t keys then at most we will have 2t -1  nodes and therefroe 2t-1 children 
-	slotSize := unsafe.Sizeof(slot{})
-	freeKey := uint16(slotSize) * uint16(len(n.Keys))
-
+	freeKey := hspace + uint16(unsafe.Sizeof(slot{})) * uint16(len(n.Keys))
 	binary.LittleEndian.PutUint16(payload[1:1+binary.Size(freeKey)], freeKey)
 
 	freeTuple := PAGE_SIZE
-	binary.LittleEndian.PutUint16(payload[1+binary.Size(freeKey):1+2*binary.Size(freeKey)], uint16(freeTuple))
+	binary.LittleEndian.PutUint16(payload[1+binary.Size(freeKey):1+2*binary.Size(freeKey)], freeTuple)
 
-	encodeChildren(bytes[1+2*binary.Size(freeKey)], )
-}
-
-func encodeKeys(bytes []byte, keys []uint32, start int) {
-	for _, key := range keys {
-		binary.LittleEndian.PutUint32(bytes[start:start+binary.Size(key)], key)
-		start += binary.Size(key)
+	// so children will be from 0 to 0 + 2t+1 
+	encodeChildren(payload, n.Children, 2*t+1)
+	return &header{
+		isLeaf: isLeaf,
+		freeKey: freeKey,
+		freeTuple: freeTuple,
+		children: n.Children,
 	}
 }
 
-// if it is a leaf set flag positive
-func encodeLeafFlag(bytes []byte, isLeaf bool) {
-	var flag uint8 = 1
-	if !isLeaf {
-		flag = 0
+func encodeChildren(payload []byte, children []uint16, stop int) {
+	start := 5
+	for i := range stop {
+		var c uint16 = 0
+		if i < len(children) {
+			c = children[i]
+		}
+
+		binary.LittleEndian.PutUint16(payload[start:start+binary.Size(c)], c)
+		start += binary.Size(c)
+
+		if c == 0 {
+			// early exit if no more children
+			break
+		}
 	}
-	bytes[0] = byte(flag)
 }
 
-func encodeChildren(bytes []byte, pageIds []uint16, start int){
-	// start at i and go to childrenLengthBytes
-	for _, pageId := range pageIds {
-		binary.LittleEndian.PutUint16(bytes[start:start+binary.Size(pageId)], pageId)
-		start += binary.Size(pageId)
+func encodeKeysAndValues(payload []byte, n *Node, h *header, t int){
+	// for each k-v pair we need to calculate and write
+	// the start 
+	// the size of bytes of data (value) written
+	// key
+
+	// this gives us a slot which we write to freeKey in header
+	// then we write the data starting from freeTuple. so freeTuple - size(value) : freeTuple
+	keys := n.Keys
+	values := n.Values
+
+	ft := h.freeTuple
+
+	var childSize uint16
+	hspace := 5 + uint16(binary.Size(childSize)*(2*t+1))
+	for i := range(n.Keys){
+		k := keys[i]
+		v := values[i]
+
+		s := slot{
+			start: ft,
+			size: uint16(binary.Size(v)),
+			key: k,
+		}
+
+		// now write slot until fk 
+		// hspace -- fk is reserved so keys, fk 
+		binary.LittleEndian.PutUint16(payload[hspace:hspace+2], s.start)
+		binary.LittleEndian.PutUint16(payload[hspace+2:hspace+4], s.size)
+		binary.LittleEndian.PutUint32(payload[hspace+4:hspace+8], s.key)
+		hspace += uint16(unsafe.Sizeof(s))
+
+		// now we have to write pageSize -> 
+		copy(payload[ft-uint16(len(v)):ft],[]byte(v))
 	}
+
+	h.freeKey = hspace
+
 }
 
 // no values yet
@@ -117,6 +159,7 @@ func decode(payload []byte, t int) *Node {
 	for i, s := range(slots){
 		keys[i] = s.key
 	}
+	node.Keys = keys
 	// node.Values = decodeValues(payload[freeTuple:]) // something like this 
 	return node
 }
