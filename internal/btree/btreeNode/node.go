@@ -14,13 +14,13 @@ type Node struct {
 	IsLeaf bool
 	PageId uint16
 	Children []uint16
-	Keys []uint32 // these might not always be integers... 
+	Keys []uint32 // these might not always be integers... but for now they will be
+	Values []string // will be string for NOW... eventually they'll just be bytes and then be decoded further up on a schema level
 }
 
 func New() *Node {
 	return &Node{IsLeaf: true}
 }
-
 
 func findIndex (keys []uint32, key uint32) int {
 	for i, k := range keys {
@@ -82,6 +82,7 @@ func (n *Node) insert(key uint32, t int, pager *pgr) (uint32, *Node, bool, error
 
 		if split {
 			n.Keys = slices.Insert(n.Keys, i, promoted)
+			// n is not a leaf therefore it must have children and therefore it definitely has at least len(n.keys)+1 children 
 			n.Children = slices.Insert(n.Children, i+1, right.PageId)
 		}
 
@@ -109,7 +110,6 @@ func (n *Node)split(t int) (uint32, *Node, bool, error)  {
 	copy(rightKeys, n.Keys[t+1:]) // dont copy promoted element
 	
 	n.Keys = leftKeys
-	
 	var right *Node
 	
 	// need to split children too, but how?
@@ -299,44 +299,3 @@ func decodeChild(pageId uint16, t int, pager *pgr) (*Node, error){
 	}
 	return decode(page.Data,t), nil
 }
-
-// func (n *Node) String() string {
-// 	var sb strings.Builder
-// 	n.write(&sb, "", true, true)
-// 	return sb.String()
-// }
-
-// func (n *Node) write(sb *strings.Builder, prefix string, isLast bool, isRoot bool) {
-// 	label := fmt.Sprintf("%v", n.Keys)
-// 	if n.IsLeaf {
-// 		label += " (leaf)"
-// 	}
-
-// 	if isRoot {
-// 		sb.WriteString(label + "\n")
-// 	} else {
-// 		branch := "├── "
-// 		if isLast {
-// 			branch = "└── "
-// 		}
-// 		sb.WriteString(prefix + branch + label + "\n")
-// 	}
-
-// 	childPrefix := prefix
-// 	if !isRoot {
-// 		if isLast {
-// 			childPrefix += "    "
-// 		} else {
-// 			childPrefix += "│   "
-// 		}
-// 	}
-
-// 	for i, pageId := range n.Children {
-// 		child, err := decodeChild(n.Children[i],t, pager)
-// 		if err != nil {
-// 			return err
-// 		}
-
-// 		c.write(sb, childPrefix, i == len(n.Children)-1, false)
-// 	}
-// }
