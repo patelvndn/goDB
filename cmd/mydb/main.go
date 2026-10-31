@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/patelvndn/goDB/internal/storage"
@@ -43,8 +44,12 @@ func main() {
 				fmt.Println("Usage: SET <key> <value>")
 				continue
 			}
+			key, err := strconv.ParseUint(args[0], 10, 32)
 
-			db.Set(args[1], args[2])
+			if err != nil {
+				fmt.Println("There was an error converting the string to an integer value: ", err.Error())
+			}
+			db.Set(uint32(key), args[2])
 			fmt.Println("OK")
 
 		case storage.OpGet:
@@ -52,8 +57,13 @@ func main() {
 				fmt.Println("Usage: GET <key>")
 				continue
 			}
+			key, err := strconv.ParseUint(args[0], 10, 32)
 
-			value, ok := db.Get(args[1])
+			if err != nil {
+				fmt.Println("There was an error converting the string to an integer value: ", err.Error())
+			}
+
+			value, ok := db.Get(uint32(key))
 			if !ok {
 				fmt.Println("(nil)")
 			} else {
@@ -61,21 +71,21 @@ func main() {
 			}
 
 		case storage.OpDelete:
-			if len(args) != 2 {
-				fmt.Println("Usage: DELETE <key>")
-				continue
-			}
+			fmt.Println("Not yet implemented")
+			// if len(args) != 2 {
+			// 	fmt.Println("Usage: DELETE <key>")
+			// 	continue
+			// }
 
-			ok := db.Delete(args[1])
+			// ok := db.Delete(args[1])
 
-			if ok {
-				fmt.Println("Deleted")
-			} else {
-				fmt.Println("No key " + args[1] + " exists do delete")
-			}
+			// if ok {
+			// 	fmt.Println("Deleted")
+			// } else {
+			// 	fmt.Println("No key " + args[1] + " exists do delete")
+			// }
 
 		case "EXIT":
-			db.Close()
 			fmt.Println("Goodbye!")
 			return
 
@@ -83,4 +93,6 @@ func main() {
 			fmt.Println("Unknown command")
 		}
 	}
+
+	
 }

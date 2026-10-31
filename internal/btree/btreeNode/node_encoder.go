@@ -2,6 +2,7 @@ package btreeNode
 
 import (
 	"encoding/binary"
+	"fmt"
 	"unsafe"
 )
 
@@ -57,7 +58,7 @@ func encode(n *Node, t int) ([]byte) {
 func encodeHeader(payload []byte, n *Node, t int) *header {
 	var childSize uint16
 	hspace := 5 + uint16(binary.Size(childSize)*(2*t+1))
-
+	fmt.Println(n)
 	var isLeaf uint8 = 0 
 	if n.IsLeaf {
 		isLeaf += 1

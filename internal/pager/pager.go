@@ -19,6 +19,8 @@ type Pager struct {
 	file *os.File
 	pageSize int
 	pages map[uint16]*Page // cache
+	// cacheSize int
+	// lru cache
 }
 
 const (
@@ -55,7 +57,7 @@ func (p *Pager) ReadPage(id uint16) (*Page, error){
 	}
 
 	if (info.Size()) < (int64(id+1) * int64((p.pageSize))) {
-		return nil, errors.New("error: no page exists for that id, largest page id is " + strconv.FormatInt((info.Size() / int64(p.pageSize)-1), BASE_10))
+		return nil, errors.New("error: no page exists for that id, largest page id is " + strconv.FormatInt((info.Size() / int64(p.pageSize) - 1), BASE_10))
 	}
 
 	// now seek and read bytes

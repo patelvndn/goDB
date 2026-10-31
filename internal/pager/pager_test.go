@@ -285,6 +285,7 @@ func TestWritePage_PadsShortDataToPageSize(t *testing.T) {
 	}
 
 	short := []byte("hi")
+	
 	page, err := p.WritePage(allocated.Id, short)
 	if err != nil {
 		t.Fatalf("WritePage() failed: %v", err)
