@@ -8,17 +8,17 @@ import (
 )
 
 type Page struct {
-	Id uint16
-	Data []byte
+	Id    uint16
+	Data  []byte
 	Dirty bool
 }
 
 // recall, pager does not need to know what each byte means
-// sole purpose is to read and return bytes for other systems to use 
+// sole purpose is to read and return bytes for other systems to use
 type Pager struct {
-	file *os.File
+	file     *os.File
 	pageSize int
-	pages map[uint16]*Page // cache
+	pages    map[uint16]*Page // cache
 	// cacheSize int
 	// lru cache
 }
@@ -30,24 +30,24 @@ const (
 func New(fileName string, pageSize int) (*Pager, error) {
 
 	// will create a page if it doesn't exists
-	file, err := os.OpenFile(fileName, os.O_RDWR | os.O_CREATE, 0644)
+	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0644)
 
 	if err != nil {
 		return nil, err
 	}
 
 	p := &Pager{file: file, pageSize: pageSize, pages: make(map[uint16]*Page)}
-	
-	return p, nil 
-} 
 
-func (p *Pager) ReadPage(id uint16) (*Page, error){
+	return p, nil
+}
+
+func (p *Pager) ReadPage(id uint16) (*Page, error) {
 	// lets keep it simple for now
 	// no metadata, just straight pages
 
 	if _, ok := p.pages[id]; ok {
-    	// Key exists in the map
-		return p.pages[id], nil 
+		// Key exists in the map
+		return p.pages[id], nil
 	}
 
 	info, err := p.file.Stat()
@@ -57,11 +57,11 @@ func (p *Pager) ReadPage(id uint16) (*Page, error){
 	}
 
 	if (info.Size()) < (int64(id+1) * int64((p.pageSize))) {
-		return nil, errors.New("error: no page exists for that id, largest page id is " + strconv.FormatInt((info.Size() / int64(p.pageSize) - 1), BASE_10))
+		return nil, errors.New("error: no page exists for that id, largest page id is " + strconv.FormatInt((info.Size()/int64(p.pageSize)-1), BASE_10))
 	}
 
 	// now seek and read bytes
-	_, err = p.file.Seek(int64(p.pageSize) * int64(id), io.SeekStart)
+	_, err = p.file.Seek(int64(p.pageSize)*int64(id), io.SeekStart)
 
 	if err != nil {
 		return nil, err
@@ -78,17 +78,17 @@ func (p *Pager) ReadPage(id uint16) (*Page, error){
 	}
 
 	page := &Page{
-		Data: data,
-		Id: id,
+		Data:  data,
+		Id:    id,
 		Dirty: false,
 	}
-	
+
 	p.pages[id] = page
 	return page, nil
 
 }
 
-func (p *Pager) WritePage(id uint16, newData []byte) (*Page, error){
+func (p *Pager) WritePage(id uint16, newData []byte) (*Page, error) {
 	_, err := p.ReadPage(id)
 
 	if err != nil {
@@ -100,11 +100,12 @@ func (p *Pager) WritePage(id uint16, newData []byte) (*Page, error){
 	}
 
 	if len(newData) < p.pageSize {
-		newData = append(newData, make([]byte, p.pageSize - len(newData))...)
+		newData = append(newData, make([]byte, p.pageSize-len(newData))...)
 	}
 
 	// create a copy in case flush fails
 	candidate := &Page{Id: id, Data: newData, Dirty: true}
+
 	err = p.flush(candidate)
 
 	if err != nil {
@@ -118,7 +119,7 @@ func (p *Pager) WritePage(id uint16, newData []byte) (*Page, error){
 }
 
 func (p *Pager) AllocatePage() (*Page, error) {
-	
+
 	info, err := p.file.Stat()
 
 	if err != nil {
@@ -132,16 +133,16 @@ func (p *Pager) AllocatePage() (*Page, error) {
 
 	// go to end of file and allocate pageSize number of bytes
 	err = allocateBytes(p, prevFileSize)
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
-	
+
 	page := &Page{
-		Id: uint16(id),
-		Data: make([]byte, p.pageSize),
+		Id:    uint16(id),
+		Data:  make([]byte, p.pageSize),
 		Dirty: false,
-	} 
-	
+	}
+
 	p.pages[id] = page
 	return page, nil
 }
@@ -153,11 +154,11 @@ func (p *Pager) Sync() error {
 
 // close the file
 func (p *Pager) Close() error {
-	
+
 	var err error
 
-	for _, page := range(p.pages){
-	
+	for _, page := range p.pages {
+
 		if page.Dirty {
 			err = p.flush(page)
 		}
@@ -206,7 +207,7 @@ func allocateBytes(p *Pager, prevFileSize int64) error {
 }
 
 func (p *Pager) flush(page *Page) error {
-	
+
 	if _, err := p.file.Seek(int64(page.Id)*int64(p.pageSize), io.SeekStart); err != nil {
 		return err
 	}
@@ -220,5 +221,5 @@ func (p *Pager) flush(page *Page) error {
 		return err
 	}
 
-	return nil 
+	return nil
 }

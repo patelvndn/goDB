@@ -1,7 +1,6 @@
 package btree
 
 import (
-	"fmt"
 	"math/rand"
 	"os"
 	"sort"
@@ -22,7 +21,7 @@ func newTestTree(t *testing.T, order int) *Btree {
 	if err != nil {
 		t.Fatalf("getwd: %v", err)
 	}
-	
+
 	if err := os.Chdir(t.TempDir()); err != nil {
 		t.Fatalf("chdir: %v", err)
 	}
@@ -43,6 +42,7 @@ func newTestTree(t *testing.T, order int) *Btree {
 //	node, err := bt.pager.ReadNode(n.Children[i])
 //	if err != nil { t.Fatalf(...) }
 //	return node
+//
 // childAt is the ONE place the tests touch how children are stored.
 func childAt(t *testing.T, bt *Btree, n *Node, i int) *Node {
 	t.Helper()
@@ -175,10 +175,11 @@ func TestInsertMultipleThenSearchEach(t *testing.T) {
 	bt := newTestTree(t, 2)
 	keys := []uint32{10, 20, 5, 15, 25, 1, 30, 3, 2, 4, 44, 67, 87, 546, 12}
 	for _, k := range keys {
-		fmt.Println(k)
+
 		if err := bt.InsertNode(k); err != nil {
 			t.Fatalf("unexpected error inserting %d: %v", k, err)
 		}
+
 		validateTree(t, bt)
 	}
 	for _, k := range keys {

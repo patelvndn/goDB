@@ -8,29 +8,31 @@ import (
 )
 
 type pgr = pager.Pager
+
 var pageSize int = 4096
 
 type Node = btreeNode.Node
 type Btree struct {
-	root *Node
-	t int
+	root  *Node
+	t     int
 	pager *pgr
-	// schema (schema will have a comparator)
-	/*
-	schema
-		[]dtype
-
-	dtype interface
-		- decode schema
-			[]bytes -> type
-			type -> bytes
-		- comparison
-		- string
-		- equality
-
-	ex String, Int, Time, Boolean
-	*/
+	// schema
 }
+
+/*
+schema
+c	[]dtype
+
+dtype interface
+	- decode schema
+		[]bytes -> type
+		type -> bytes
+	- comparison
+	- string
+	- equality
+
+ex String, Int, Time, Boolean
+*/
 
 func New(t int) (*Btree, error) {
 
@@ -53,15 +55,15 @@ func New(t int) (*Btree, error) {
 	}
 
 	root := btreeNode.New(pager)
-	
+
 	return &Btree{
-		root: root,
-		t: t,
+		root:  root,
+		t:     t,
 		pager: pager,
-	}, nil 
+	}, nil
 }
 
-func (bt *Btree) InsertNode(key uint32) (error){
+func (bt *Btree) InsertNode(key uint32) error {
 	// this logic needs to be moved
 	root, err := bt.root.Insert(key, bt.t, bt.pager)
 
@@ -70,7 +72,7 @@ func (bt *Btree) InsertNode(key uint32) (error){
 	}
 
 	bt.root = root
-	return nil 
+	return nil
 }
 
 func (bt *Btree) SearchNode(key uint32) (*Node, int, bool) {
@@ -88,4 +90,3 @@ func (bt *Btree) RemoveNode(key uint32) error {
 
 	return nil
 }
-

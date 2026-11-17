@@ -39,3 +39,7 @@ Also my experience in go as I try to get a lot better at it.
 3. I have got myself into a large mess with the encoding logic. I'm repeatedly decoding the bytes back into Node characters and rewriting everything to match. I believe there is a better way to do this and I'm going to see if theres a way I can make this a lot easier.
 
 4. I'm giving myself a proper finish line now... a key value store, slotted pages, and a b-tree index. I switched to using slotted pages since it was alot easier for variable length data. This also lets me decode key data into `[]byte` so that a higher level package can decode it furhter into what it actually should be
+
+5. Found a bug where I didn't update the header after calculating the free pointer nodes after encoding the keys and values. 
+
+6. Found a bug where I didn't update the page ID after decoding so it resulted in Zero. which is a sentinel page reserved for metadata... It was getting rewritten to each time so there was data loss.
