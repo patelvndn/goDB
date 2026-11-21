@@ -187,11 +187,13 @@ func (n *Node) Search(key uint32, t int, pager *pgr) (*Node, int, bool) {
 
 func (n *Node) Remove(key uint32, t int, pager *pgr) (*Node, error) {
 
+	fmt.Println("removing,", key)
 	if err := n.remove(key, t, pager); err != nil {
 		return n, err
 	}
 
 	if len(n.Keys) == 0 && !n.IsLeaf {
+		// is this the collapse?
 		child, err := DecodeChild(n.Children[0], t, pager)
 		if err != nil {
 			return nil, err
@@ -214,8 +216,10 @@ func (n *Node) remove(key uint32, t int, pager *pgr) error {
 		// key is not in internal node
 		if found {
 			n.Keys = slices.Delete(n.Keys, i, i+1)
+			pager.WritePage(n.PageId, encode(n, t))
 			return nil
 		}
+
 		return errors.New("Key not found error")
 	}
 
@@ -230,24 +234,31 @@ func (n *Node) remove(key uint32, t int, pager *pgr) error {
 	}
 
 	if found {
+
 		if len(left.Keys) >= t {
 			pred := left.maxKey(t, pager)
 			n.Keys[i] = pred // this is the 'delete' -> rewrite i and then remove pred from left
+			pager.WritePage(n.PageId, encode(n, t))
 			return left.remove(pred, t, pager)
 		} else if len(right.Keys) >= t {
 			succ := right.minKey(t, pager)
 			n.Keys[i] = succ
+			pager.WritePage(n.PageId, encode(n, t))
 			return right.remove(succ, t, pager)
+		} else {
+			merge(n, i, t, pager) // so when both left and right are < t so merging gets us  < 2t, then in the merge we have to add i to it, then we remove it from the chil
+			return left.remove(key, t, pager)
 		}
-		merge(n, i, t, pager) // so when both left and right are < t so merging gets us  < 2t, then in the merge we have to add i to it, then we remove it from the chil
-		return left.remove(key, t, pager)
+
 	}
 
 	if len(left.Keys) < t {
 		i = n.fill(i, t, pager) // we need to balance our tree by adding keys
+		return left.remove(n.Keys[i], t, pager)
 	}
 
 	return left.remove(key, t, pager)
+
 }
 
 // ensures Children[i] has >= t keys; returns the (possibly shifted) child index
@@ -317,6 +328,11 @@ func merge(n *Node, i int, t int, pager *pgr) {
 
 	n.Children = slices.Delete(n.Children, i+1, i+2) // delete the right child
 	n.Keys = slices.Delete(n.Keys, i, i+1)           // delete the key at index i
+
+	// need to write n and left child
+	pager.WritePage(n.PageId, encode(n, t))
+	pager.WritePage(left.PageId, encode(left, t))
+	// pager.FreePage(right.PageId) <- still need to implement this
 
 }
 

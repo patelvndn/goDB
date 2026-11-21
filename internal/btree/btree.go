@@ -32,9 +32,15 @@ dtype interface
 	- equality
 
 ex String, Int, Time, Boolean
+
+	do we need an orchestration layer -> i think not right now but once we start including schemas then yea probably
+
 */
 
 func New(t int) (*Btree, error) {
+
+	// TODO: have t be a variable inside the pager
+	// we'll need multiple pagers anyway for different schemas
 
 	pager, err := pager.New("database", pageSize)
 

@@ -87,7 +87,7 @@ func encodeHeader(payload []byte, n *Node, t int) *header {
 	// free key is headerSize + slotSize * length of n.keys
 	// what is header size? we are given t
 	// remember total number of possible children are... if we split on size > 2t -1 so if we split on 2t keys then at most we will have 2t -1  nodes and therefroe 2t-1 children
-	freeKey := h.hspace(t) //
+	freeKey := h.hspace(t)
 	binary.LittleEndian.PutUint16(payload[1:1+binary.Size(freeKey)], freeKey)
 
 	freeTuple := PAGE_SIZE

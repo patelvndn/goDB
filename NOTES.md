@@ -43,3 +43,10 @@ Also my experience in go as I try to get a lot better at it.
 5. Found a bug where I didn't update the header after calculating the free pointer nodes after encoding the keys and values. 
 
 6. Found a bug where I didn't update the page ID after decoding so it resulted in Zero. which is a sentinel page reserved for metadata... It was getting rewritten to each time so there was data loss.
+
+7. Upgraded to go 1.27 so I could use a debugger and found a lot of errors:
+  - fix the fill method since it tries to get left and right siblings for nodes that might not have them 
+  - insert writes an overfull node BEFORE split... split first then write
+  - errors are swallowed everywhere
+  - maxKey and minKey need to return the values associated with it as well 
+  - persist root page IDRealized that fill method when we remove tries to decode left and right sibling nodes even when they might not exist
